@@ -137,7 +137,7 @@ module PahoRuby
       @waiting_pubrel = []
       @waiting_pubcomp = []
       
-      @on_conack = nil
+      @on_connack = nil
       @on_suback = nil
       @on_unsuback = nil
       @on_puback = nil
@@ -145,7 +145,7 @@ module PahoRuby
       @on_pubrec = nil
       @on_pubcomp = nil
       @on_message = nil
-      @registred_callback = []
+      @registered_callback = []
     end
 
     def generate_client_id(prefix='paho_ruby', lenght=16)
@@ -485,6 +485,7 @@ module PahoRuby
           send_packet(m)
         end
       }
+      @on_connack.call unless @on_connack.nil?
     end
 
     def handle_pingresp
@@ -518,7 +519,7 @@ module PahoRuby
       @subscribed_mutex.synchronize {
         @subscribed_topics.concat(adjust_qos)
       }
-      pp @subscribed_topics
+      @on_suback.call unless @on_suback.nil?
     end
 
     def handle_unsuback(packet)
@@ -533,12 +534,13 @@ module PahoRuby
         raise "Two packet unsubscribe cannot have the same id"
       end
 
+
       @subscribed_mutex.synchronize {
         to_unsub.each do |filter|
-          @subscribed_topics.delete_if { |topic| match_filter(topic, filter) }
+          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter) }
         end
       }
-      pp @subscribed_topics
+      @on_unsuback.call unless @on_unsuback.nil?
     end
     
     def handle_publish(packet)
@@ -553,6 +555,7 @@ module PahoRuby
         raise "Unknow publish packet"
       end
       @on_message.call(packet.topic, packet.payload, packet.qos) unless @on_message.nil?
+      @registered_callback.assoc(packet.topic).last.call  if @registered_callback.any? { |pair| pair.first == packet.topic}
     end
     
     def handle_puback(packet)
@@ -560,6 +563,7 @@ module PahoRuby
       @puback_mutex.synchronize{
         @waiting_puback.delete_if { |pck| pck[:id] == packet.id }
       }
+      @on_puback.call unless @on_puback.nil?
     end
 
     def handle_pubrec(packet)
@@ -568,6 +572,7 @@ module PahoRuby
         @waiting_pubrec.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubrel(packet.id)
+      @on_pubrec.call unless @on_pubrec.nil?
     end
 
     def handle_pubrel(packet)
@@ -576,6 +581,7 @@ module PahoRuby
         @waiting_pubrel.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubcomp(packet.id)
+      @on_pubrel.call unless @on_pubrel.nil?
     end
 
     def handle_pubcomp(packet)
@@ -583,6 +589,7 @@ module PahoRuby
       @pubcomp_mutex.synchronize {
         @waiting_pubcomp.delete_if { |pck| pck[:id] == packet.id }
       }
+      @on_pubcomp.call unless @on_pubcomp.nil?
     end
     
     ### MOVE TO ERROR HANDLER CLASS
@@ -730,6 +737,52 @@ module PahoRuby
         :id => packet_id
       )
       append_to_writing(packet)
+    end
+
+    def add_topic_callback(topic, callback=nil, &block)
+      raise "Trying to register a callback for an undefined topic" if topic.nil?
+
+      remove_topic_callback(topic)
+      
+      if block_given?          
+        @registered_callback.push([topic, block])
+      elsif !(callback.nil?) && callback.class == Proc
+        @registered_callback.push([topic, callback])
+      end
+    end
+
+    def remove_topic_callback(topic)
+      raise "Trying to unregister a callback for an undefined topic" if topic.nil?
+
+      @registered_callback.delete_if {|pair| pair.first == topic}
+    end
+    
+    def on_connack(&block)
+      @on_connack = block if block_given?
+    end
+    
+    def on_suback(&block)
+      @on_suback = block if block_given?
+    end
+    
+    def on_puback(&block)
+      @on_puback = block if block_given?
+    end
+    
+    def on_pubrec(&block)
+      @on_pubrel = block if block_given?
+    end
+    
+    def on_pubrel(&block)
+      @on_suback = block if block_given?
+    end
+
+    def on_pubcomp(&block)
+      @on_suback = block if block_given?
+    end
+
+    def on_message(&block)
+      @on_message = block if block_given?
     end
     
     private
