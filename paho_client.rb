@@ -72,7 +72,7 @@ module PahoRuby
     attr_accessor :on_pubrel
     attr_accessor :on_pubrec
     attr_accessor :on_pubcomp
-    attr_accessor :registred_callback
+    attr_accessor :registered_callback
     
     ATTR_DEFAULTS = {
       :host => "",
@@ -89,6 +89,15 @@ module PahoRuby
       :will_retain => false,
       :keep_alive => 5,
       :ack_timeout => 5,
+      :on_connack => nil,
+      :on_suback => nil,
+      :on_unsuback => nil,
+      :on_puback => nil,
+      :on_pubrel => nil,
+      :on_pubrec => nil,
+      :on_pubcomp => nil,
+      :on_message => nil,
+      :registered_callback => []
     }
     
     
@@ -136,16 +145,6 @@ module PahoRuby
       @waiting_pubrec = []
       @waiting_pubrel = []
       @waiting_pubcomp = []
-      
-      @on_connack = nil
-      @on_suback = nil
-      @on_unsuback = nil
-      @on_puback = nil
-      @on_pubrel = nil
-      @on_pubrec = nil
-      @on_pubcomp = nil
-      @on_message = nil
-      @registered_callback = []
     end
 
     def generate_client_id(prefix='paho_ruby', lenght=16)
@@ -157,7 +156,7 @@ module PahoRuby
       @last_packet_id = ( @last_packet_id || 0 ).next
     end
     
-    def set_ssl_context(cert_path, key_path, ca_path)
+    def set_ssl_context(cert_path, key_path, ca_path=nil)
       @ssl ||= true
       @ssl_context = ssl_context
       self.cert = cert_path
@@ -244,8 +243,8 @@ module PahoRuby
       config_ssl_socket
       send_connect
 
-      # Waiting a Connack packet for 2 second from the remote 
-      connect_timeout = Time.now + 2
+      # Waiting a Connack packet for "ack_timeout" second from the remote 
+      connect_timeout = Time.now + @ack_timeout
       while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
         receive_packet
       end
@@ -282,7 +281,7 @@ module PahoRuby
       loop_read
       loop_write
       loop_misc
-      sleep 0.1
+      sleep 0.005
     end
 
     def loop_misc
@@ -456,7 +455,6 @@ module PahoRuby
     end
 
     def handle_connack(packet)
-      puts "Connack packet received"
       if packet.return_code == 0x00        
         puts "Connection accepted, ready to process"
         if @clean_session && !packet.session_present
@@ -476,7 +474,6 @@ module PahoRuby
         handle_connack_error(packet.return_code)
       end
       
-      # To complete with publish
       config_all_message_queue
 
       @writing_mutex.synchronize {
@@ -494,7 +491,6 @@ module PahoRuby
     end
     
     def handle_suback(packet) 
-      puts "Got suback"
       adjust_qos = []
       max_qos = packet.return_codes
       @suback_mutex.synchronize {
@@ -544,7 +540,6 @@ module PahoRuby
     end
     
     def handle_publish(packet)
-      puts "Received publish"
       case packet.qos
       when 0
       when 1
@@ -559,7 +554,6 @@ module PahoRuby
     end
     
     def handle_puback(packet)
-      puts "Received Puback"
       @puback_mutex.synchronize{
         @waiting_puback.delete_if { |pck| pck[:id] == packet.id }
       }
@@ -567,7 +561,6 @@ module PahoRuby
     end
 
     def handle_pubrec(packet)
-      puts "Received Pubrec"
       @pubrec_mutex.synchronize {
         @waiting_pubrec.delete_if { |pck| pck[:id] == packet.id }
       }
@@ -576,7 +569,6 @@ module PahoRuby
     end
 
     def handle_pubrel(packet)
-      puts "Received Pubrel"
       @pubrel_mutex.synchronize {
         @waiting_pubrel.delete_if { |pck| pck[:id] == packet.id }
       }
@@ -585,7 +577,6 @@ module PahoRuby
     end
 
     def handle_pubcomp(packet)
-      puts "Received Pubcomp"
       @pubcomp_mutex.synchronize {
         @waiting_pubcomp.delete_if { |pck| pck[:id] == packet.id }
       }
