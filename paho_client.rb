@@ -120,11 +120,11 @@ module PahoRuby
       @writing_queue = []
       @connection_state = MQTT_CS_DISCONNECT
       @connection_state_mutex = Mutex.new
-      @subscribed_topics = {}
+      @subscribed_topics = []
       @subscribed_mutex = Mutex.new
-      @waiting_suback = {}
+      @waiting_suback = []
       @suback_mutex = Mutex.new
-      @waiting_unsuback = {}
+      @waiting_unsuback = []
       @unsuback_mutex = Mutex.new
       @main_thread = nil
       
@@ -282,6 +282,7 @@ module PahoRuby
       loop_read
       loop_write
       loop_misc
+      sleep 0.1
     end
 
     def loop_misc
@@ -315,14 +316,12 @@ module PahoRuby
       mutex.synchronize {
         now = Time.now
         cnt = 0
-        pp queue unless queue.empty?
         queue.each do |pck|
-          pp pck
-          if now >= mess.timestamp + @ack_timeout
-            pck.packet.dup ||= true unless pck.packet.class == PahoRuby::Packet::Subscribe || pck.packet.class == PahoRuby::Packet::Unsubscribe
+          if now >= pck[:timestamp] + @ack_timeout
+            pck[:packet].dup ||= true unless pck[:packet].class == PahoRuby::Packet::Subscribe || pck[:packet].class == PahoRuby::Packet::Unsubscribe
             unless cnt > max_packet
-              append_to_writing(pck.packet) 
-              pck.timestamp = now
+              append_to_writing(pck[:packet]) 
+              pck[:timestamp] = now
               cnt += 1
             end
           end
@@ -498,57 +497,91 @@ module PahoRuby
       adjust_qos = []
       max_qos = packet.return_codes
       @suback_mutex.synchronize {
-        adjust_qos = @waiting_suback.delete_if { |pck| pck.id == packet.id }
+        adjust_qos, @waiting_suback = @waiting_suback.partition { |pck| pck[:id] == packet.id }
       }
 
-      pp adjust_qos
-      adjust_qos.each do |topic, qos|
-        ["0", "1", "2"].include?(max_qos[0]) ? adjust_qos.delete(topic) : adjust_qos[topic] = max_qos.shift
+      if adjust_qos.length == 1
+        adjust_qos = adjust_qos.first[:packet].topics
+        adjust_qos.each do |t|
+          if [0, 1, 2].include?(max_qos[0])
+            t[1] = max_qos.shift
+          elsif max_qos[0] == 128
+            adjust_qos.delete(t)
+          else
+            raise "Invalid qos value used."
+          end
+        end
+      else
+        raise "Two packet subscribe packet cannot have the same id"
       end
       
       @subscribed_mutex.synchronize {
         @subscribed_topics.concat(adjust_qos)
       }
+      pp @subscribed_topics
     end
 
     def handle_unsuback(packet)
-      to_unsub = []
+      to_unsub = nil
       @unsuback_mutex.synchronize {
-        to_unsub = @waiting_unsuback.delete_if { |pck| pck.id == packet.id }
+        to_unsub, @waiting_unsuback = @waiting_unsuback.partition { |pck| pck[:id] == packet.id }
       }
+      
+      if to_unsub.length == 1
+        to_unsub = to_unsub.first[:packet].topics
+      else
+        raise "Two packet unsubscribe cannot have the same id"
+      end
 
       @subscribed_mutex.synchronize {
-        to_unsub.topics.each do |filter|
+        to_unsub.each do |filter|
           @subscribed_topics.delete_if { |topic| match_filter(topic, filter) }
         end
       }
+      pp @subscribed_topics
     end
     
     def handle_publish(packet)
       puts "Received publish"
-      puts "Topic : #{packet.topic}\nPayload: #{packet.payload}\nQos: #{packet.qos}"
+      case packet.qos
+      when 0
+      when 1
+        send_puback(packet.id)
+      when 2
+        send_pubrec(packet.id)
+      else
+        raise "Unknow publish packet"
+      end
+      @on_message.call(packet.topic, packet.payload, packet.qos) unless @on_message.nil?
     end
     
     def handle_puback(packet)
       puts "Received Puback"
+      @puback_mutex.synchronize{
+        @waiting_puback.delete_if { |pck| pck[:id] == packet.id }
+      }
     end
 
     def handle_pubrec(packet)
       puts "Received Pubrec"
       @pubrec_mutex.synchronize {
-        @waiting_pubrec.delete_if { |pck| pck.id == packet.id}
+        @waiting_pubrec.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubrel(packet.id)
     end
 
     def handle_pubrel(packet)
       puts "Received Pubrel"
+      @pubrel_mutex.synchronize {
+        @waiting_pubrel.delete_if { |pck| pck[:id] == packet.id }
+      }
+      send_pubcomp(packet.id)
     end
 
     def handle_pubcomp(packet)
       puts "Received Pubcomp"
       @pubcomp_mutex.synchronize {
-        @waiting_pubcomp.delete_if { |pck| pck.id == packet.id }
+        @waiting_pubcomp.delete_if { |pck| pck[:id] == packet.id }
       }
     end
     
@@ -615,7 +648,6 @@ module PahoRuby
         @suback_mutex.synchronize {
           @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
         }
-        # Throw a time out
         append_to_writing(packet)
       else
         raise "Protocol Violation, subscribe topics list must not be empty."
@@ -641,7 +673,6 @@ module PahoRuby
 
     def send_publish(topic, payload, retain, qos)
       new_id = next_packet_id
-      
       packet = PahoRuby::Packet::Publish.new(
         :id => new_id,
         :topic => topic,
@@ -662,6 +693,26 @@ module PahoRuby
         }
       end
     end
+
+    def send_puback(packet_id)
+      packet = PahoRuby::Packet::Puback.new(
+        :id => packet_id
+      )
+
+      append_to_writing(packet)
+    end
+
+    def send_pubrec(packet_id)
+      packet = PahoRuby::Packet::Pubrec.new(
+        :id => packet_id
+      )
+
+      append_to_writing(packet)
+      
+      @pubrel_mutex.synchronize{
+        @waiting_pubrel.push({:id => packet_id , :packet => packet, :timestamp => Time.now})
+      }
+    end
     
     def send_pubrel(packet_id)
       packet = PahoRuby::Packet::Pubrel.new(
@@ -672,6 +723,13 @@ module PahoRuby
       @pubcomp_mutex.synchronize{
         @waiting_pubcomp.push({:id => packet_id, :packet => packet, :timestamp => Time.now})
       }
+    end
+
+    def send_pubcomp(packet_id)
+      packet = PahoRuby::Packet::Pubcomp.new(
+        :id => packet_id
+      )
+      append_to_writing(packet)
     end
     
     private
