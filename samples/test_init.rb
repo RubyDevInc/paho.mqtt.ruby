@@ -1,13 +1,11 @@
-require "./paho_client"
-require "./packet_manager"
+require "../lib/paho_client"
+require "../lib/packet_manager"
 require "pp"
 
 cli = PahoRuby::Client.new
 cli.ssl = true
 cli.set_ssl_context("/Users/Pierre/certs/test/mykey.crt", "/Users/Pierre/certs/test/mykey.key")
 cli.connect('test.mosquitto.org', 8883)
-
-puts "ClientId : #{cli.client_id}"
 
 #########################################################
 ### Callback settings

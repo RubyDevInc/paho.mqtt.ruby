@@ -1,8 +1,6 @@
-require 'thread'
+#require 'thread'
 require 'openssl'
 require 'socket'
-
-require 'pp'
 
 module PahoRuby
 
@@ -17,7 +15,7 @@ module PahoRuby
     MAX_PUBREC = 20
     MAX_PUBREL = 20
     MAX_PUBCOMP = 20
-    MAX_WRITING = 100
+    MAX_WRITING = MAX_PUBACK + MAX_PUBREC + MAX_PUBREL  + MAX_PUBCOMP 
     
     # Connection states values
     MQTT_CS_NEW = 0
@@ -174,10 +172,16 @@ module PahoRuby
         tcp_socket = TCPSocket.new(@host, @port)
       end
 
-      unless @ssl_context.nil?
-        @socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, @ssl_context)
-        @socket.sync_close = true
-        @socket.connect
+      if @ssl
+        unless @ssl_context.nil?
+          @socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, @ssl_context)
+          @socket.sync_close = true
+          @socket.connect
+        else
+          raise "SSL context should be defined and set to open SSLSocket"
+        end
+      else
+        # TODO : unencrypted case
       end
     end
     
@@ -253,8 +257,8 @@ module PahoRuby
         raise "Didn't receive Connack answer from server #{@host}"
       end
 
-      next_packet_id
-
+      config_all_message_queue
+      
       @main_thread = Thread.new(Thread.current) do |parent|
         Thread.current[:parent] = parent
         while @connection_state == MQTT_CS_CONNECTED do
@@ -386,6 +390,8 @@ module PahoRuby
         @waiting_pubcomp = []
       }
 
+      @last_packet_id = 0
+      
       @main_thread.kill if @main_thread and @main_thread.alive?
       @main_thread = nil
     end
