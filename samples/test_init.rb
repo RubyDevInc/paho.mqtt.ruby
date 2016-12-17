@@ -4,7 +4,7 @@ require "pp"
 
 cli = PahoRuby::Client.new
 cli.ssl = true
-cli.set_ssl_context("/Users/Pierre/certs/test/mykey.crt", "/Users/Pierre/certs/test/mykey.key")
+cli.config_ssl_context("/Users/Pierre/certs/test/mykey.crt", "/Users/Pierre/certs/test/mykey.key")
 cli.connect('test.mosquitto.org', 8883)
 
 #########################################################
@@ -23,11 +23,10 @@ cli.add_topic_callback('/toto/tata', toto_tata)
 cli.add_topic_callback('/toto/toto', toto_toto)
 
 #########################################################
-sleep 1
 
 cli.subscribe(['/toto/toto', 0], ['/toto/tata', 1], ['/toto/tutu', 2], ["/toto", 0])
 
-sleep 2
+sleep 1
 
 cli.publish("/toto/tutu", "It's me!", false, 2)
 cli.publish("/toto/tutu", "It's you!", false, 1)

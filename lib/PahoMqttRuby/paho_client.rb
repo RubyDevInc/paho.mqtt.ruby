@@ -1,9 +1,8 @@
-#require 'thread'
 require 'openssl'
 require 'socket'
+require 'pp'
 
-module PahoRuby
-
+module PahoMqttRuby
   DEFAULT_SSL_PORT = 8883
   DEFAULT_PORT = 1883
   SELECT_TIMEOUT = 0.5
@@ -71,6 +70,7 @@ module PahoRuby
     attr_accessor :on_pubrec
     attr_accessor :on_pubcomp
     attr_accessor :registered_callback
+    attr_accessor :subscribed_topics
     
     ATTR_DEFAULTS = {
       :host => "",
@@ -95,7 +95,8 @@ module PahoRuby
       :on_pubrec => nil,
       :on_pubcomp => nil,
       :on_message => nil,
-      :registered_callback => []
+      :registered_callback => [],
+      :subscribed_topics => []
     }
     
     
@@ -111,7 +112,7 @@ module PahoRuby
       end
 
       if @port.nil?
-        @port = @ssl ? PahoRuby::DEFAULT_SSL_PORT : PahoRuby::DEFAULT_PORT
+        @port = @ssl ? PahoMqttRuby::DEFAULT_SSL_PORT : PahoMqttRuby::DEFAULT_PORT
       end
       
       if  @client_id.nil? || @client_id == ""
@@ -127,7 +128,6 @@ module PahoRuby
       @writing_queue = []
       @connection_state = MQTT_CS_DISCONNECT
       @connection_state_mutex = Mutex.new
-      @subscribed_topics = []
       @subscribed_mutex = Mutex.new
       @waiting_suback = []
       @suback_mutex = Mutex.new
@@ -154,7 +154,7 @@ module PahoRuby
       @last_packet_id = ( @last_packet_id || 0 ).next
     end
     
-    def set_ssl_context(cert_path, key_path, ca_path=nil)
+    def config_ssl_context(cert_path, key_path, ca_path=nil)
       @ssl ||= true
       @ssl_context = ssl_context
       self.cert = cert_path
@@ -214,7 +214,7 @@ module PahoRuby
     def connect_async(host, port=1883, keep_alive=15)
       @host = host
       puts "Try to connect to #{@host}"
-      @port = port
+      @port = port.to_i
       @keep_alive = keep_alive
 
       @connection_state_mutex.synchronize {
@@ -231,7 +231,7 @@ module PahoRuby
         raise "Connection Failed, host cannot be nil or empty"
       end
       
-      if @port <= 0
+      if @port.to_i <= 0
         raise "Connection Failed port cannot be 0 >="
       end
 
@@ -321,7 +321,7 @@ module PahoRuby
         cnt = 0
         queue.each do |pck|
           if now >= pck[:timestamp] + @ack_timeout
-            pck[:packet].dup ||= true unless pck[:packet].class == PahoRuby::Packet::Subscribe || pck[:packet].class == PahoRuby::Packet::Unsubscribe
+            pck[:packet].dup ||= true unless pck[:packet].class == PahoMqttRuby::Packet::Subscribe || pck[:packet].class == PahoMqttRuby::Packet::Unsubscribe
             unless cnt > max_packet
               append_to_writing(pck[:packet]) 
               pck[:timestamp] = now
@@ -396,9 +396,9 @@ module PahoRuby
       @main_thread = nil
     end
     
-    def publish(topic="", payload="", retain=false, qos=0)
+    def publish(topic, payload="", retain=false, qos=0)
       if topic == "" || !topic.is_a?(String)
-        raise "Publish error, topic in empty or invalid"
+        raise "Publish error, topic is empty or invalid"
       end
         send_publish(topic, payload, retain, qos)
     end
@@ -411,7 +411,7 @@ module PahoRuby
       end
     end
 
-    def unsubscribe(*topics)
+    def unsubscribe(topics)
       unless topics.length == 0
         send_unsubscribe(topics)
       else
@@ -423,7 +423,7 @@ module PahoRuby
       begin
         result = IO.select([@socket], [], [], SELECT_TIMEOUT)
         unless result.nil?
-          packet = PahoRuby::Packet.read(@socket)
+          packet = PahoMqttRuby::Packet.read(@socket)
           handle_packet packet
           @last_ping_resp = Time.now
         end
@@ -437,23 +437,23 @@ module PahoRuby
     end
     
     def handle_packet(packet)
-      if packet.class == PahoRuby::Packet::Connack
+      if packet.class == PahoMqttRuby::Packet::Connack
         handle_connack(packet)
-      elsif packet.class == PahoRuby::Packet::Suback
+      elsif packet.class == PahoMqttRuby::Packet::Suback
         handle_suback(packet)
-      elsif packet.class == PahoRuby::Packet::Unsuback
+      elsif packet.class == PahoMqttRuby::Packet::Unsuback
         handle_unsuback(packet)
-      elsif packet.class == PahoRuby::Packet::Publish
+      elsif packet.class == PahoMqttRuby::Packet::Publish
         handle_publish(packet)
-      elsif packet.class == PahoRuby::Packet::Puback
+      elsif packet.class == PahoMqttRuby::Packet::Puback
         handle_puback(packet)
-      elsif packet.class == PahoRuby::Packet::Pubrec
+      elsif packet.class == PahoMqttRuby::Packet::Pubrec
         handle_pubrec(packet)
-      elsif packet.class == PahoRuby::Packet::Pubrel
+      elsif packet.class == PahoMqttRuby::Packet::Pubrel
         handle_pubrel(packet)
-      elsif packet.class == PahoRuby::Packet::Pubcomp
+      elsif packet.class == PahoMqttRuby::Packet::Pubcomp
         handle_pubcomp(packet)
-      elsif packet.class ==PahoRuby::Packet::Pingresp
+      elsif packet.class ==PahoMqttRuby::Packet::Pingresp
         handle_pingresp
       else
         raise ProtocolExecption.new("Unknow packet received")
@@ -492,7 +492,6 @@ module PahoRuby
     end
 
     def handle_pingresp
-      puts "Connection to Server is still alive"
       @last_ping_resp = Time.now
     end
     
@@ -555,8 +554,9 @@ module PahoRuby
       else
         raise "Unknow publish packet"
       end
-      @on_message.call(packet.topic, packet.payload, packet.qos) unless @on_message.nil?
-      @registered_callback.assoc(packet.topic).last.call  if @registered_callback.any? { |pair| pair.first == packet.topic}
+      
+      @on_message.call(packet) unless @on_message.nil?
+      @registered_callback.assoc(packet.topic).last.call(packet)  if @registered_callback.any? { |pair| pair.first == packet.topic}
     end
     
     def handle_puback(packet)
@@ -615,7 +615,7 @@ module PahoRuby
     end
     
     def send_connect
-      packet = PahoRuby::Packet::Connect.new(
+      packet = PahoMqttRuby::Packet::Connect.new(
         :version => @mqtt_version,
         :clean_session => @clean_session,
         :keep_alive => @keep_alive,
@@ -631,12 +631,12 @@ module PahoRuby
     end
 
     def send_disconnect
-      packet = PahoRuby::Packet::Disconnect.new
+      packet = PahoMqttRuby::Packet::Disconnect.new
       send_packet(packet)
     end
 
     def send_pingreq
-      packet = PahoRuby::Packet::Pingreq.new
+      packet = PahoMqttRuby::Packet::Pingreq.new
       send_packet(packet)
     end
 
@@ -644,11 +644,11 @@ module PahoRuby
     def send_subscribe(topics)
       unless topics.length == 0
         new_id = next_packet_id
-        packet = PahoRuby::Packet::Subscribe.new(
+        packet = PahoMqttRuby::Packet::Subscribe.new(
           :id => new_id,
           :topics => topics
-        )
-        
+        )        
+
         @suback_mutex.synchronize {
           @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
         }
@@ -661,7 +661,7 @@ module PahoRuby
     def send_unsubscribe(topics)
       unless topics.length == 0
         new_id = next_packet_id
-        packet = PahoRuby::Packet::Unsubscribe.new(
+        packet = PahoMqttRuby::Packet::Unsubscribe.new(
           :id => new_id,
           :topics => topics
         )
@@ -677,7 +677,7 @@ module PahoRuby
 
     def send_publish(topic, payload, retain, qos)
       new_id = next_packet_id
-      packet = PahoRuby::Packet::Publish.new(
+      packet = PahoMqttRuby::Packet::Publish.new(
         :id => new_id,
         :topic => topic,
         :payload => payload,
@@ -699,7 +699,7 @@ module PahoRuby
     end
 
     def send_puback(packet_id)
-      packet = PahoRuby::Packet::Puback.new(
+      packet = PahoMqttRuby::Packet::Puback.new(
         :id => packet_id
       )
 
@@ -707,7 +707,7 @@ module PahoRuby
     end
 
     def send_pubrec(packet_id)
-      packet = PahoRuby::Packet::Pubrec.new(
+      packet = PahoMqttRuby::Packet::Pubrec.new(
         :id => packet_id
       )
 
@@ -719,7 +719,7 @@ module PahoRuby
     end
     
     def send_pubrel(packet_id)
-      packet = PahoRuby::Packet::Pubrel.new(
+      packet = PahoMqttRuby::Packet::Pubrel.new(
         :id => packet_id
       )
       append_to_writing(packet)
@@ -730,7 +730,7 @@ module PahoRuby
     end
 
     def send_pubcomp(packet_id)
-      packet = PahoRuby::Packet::Pubcomp.new(
+      packet = PahoMqttRuby::Packet::Pubcomp.new(
         :id => packet_id
       )
       append_to_writing(packet)

@@ -9,8 +9,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Pierre Goudet"]
   spec.email         = ["p-goudet@ruby-dev.jp"]
 
-  spec.summary       = %q{TODO: Write a short summary, because Rubygems requires one.}
-  spec.description   = %q{TODO: Write a longer description or delete this line.}
+  spec.summary       = %q{A simple mqtt client gem}
+  spec.description   = %q{A simple mqtt client gem}
   spec.homepage      = "http://ruby-dev.jp"
   spec.license       = "MIT"
 
