@@ -335,7 +335,7 @@ module PahoMqtt
       @reconnect_thread = Thread.new do
         retry_time.times do
           # TODO => MOVE TO LOGGER
-          #puts "Retrying to connect"
+          # puts "Retrying to connect"
           setup_connection
           if @connection_state == MQTT_CS_CONNECTED
             break
@@ -420,30 +420,30 @@ module PahoMqtt
 
         @socket.close unless @socket.nil?
         @socket = nil
+
+        @writing_mutex.synchronize {
+          @writing_queue = []
+        }
+
+        @puback_mutex.synchronize {
+          @waiting_puback = []
+        }
+
+        @pubrec_mutex.synchronize {
+          @waiting_pubrec = []
+        }
+
+        @pubrel_mutex.synchronize {
+          @waiting_pubrel = []
+        }
+
+        @pubcomp_mutex.synchronize {
+          @waiting_pubcomp = []
+        }
       end
 
       @connection_state_mutex.synchronize {
         @connection_state = MQTT_CS_DISCONNECT
-      }
-
-      @writing_mutex.synchronize {
-        @writing_queue = []
-      }
-
-      @puback_mutex.synchronize {
-        @waiting_puback = []
-      }
-
-      @pubrec_mutex.synchronize {
-        @waiting_pubrec = []
-      }
-
-      @pubrel_mutex.synchronize {
-        @waiting_pubrel = []
-      }
-
-      @pubcomp_mutex.synchronize {
-        @waiting_pubcomp = []
       }
 
       @last_packet_id = 0
@@ -473,8 +473,69 @@ module PahoMqtt
       end
     end
     
-    private
+    def add_topic_callback(topic, callback=nil, &block)
+      raise "Trying to register a callback for an undefined topic" if topic.nil?
+
+      remove_topic_callback(topic)
+
+      if block_given?
+        @registered_callback.push([topic, block])
+      elsif !(callback.nil?) && callback.class == Proc
+        @registered_callback.push([topic, callback])
+      end
+      MQTT_ERR_SUCCESS
+    end
+
+    def remove_topic_callback(topic)
+      raise "Trying to unregister a callback for an undefined topic" if topic.nil?
+
+      @registered_callback.delete_if {|pair| pair.first == topic}
+      MQTT_ERR_SUCCESS
+    end
     
+    def on_connack(&block)
+      @on_connack = block if block_given?
+      @on_connack
+    end
+
+    def on_suback(&block)
+      @on_suback = block if block_given?
+      @on_suback
+    end
+
+    def on_unsuback(&block)
+      @on_unsuback = block if block_given?
+      @on_unsuback
+    end
+
+    def on_puback(&block)
+      @on_puback = block if block_given?
+      @on_puback
+    end
+
+    def on_pubrec(&block)
+      @on_pubrec = block if block_given?
+      @on_pubrec
+    end
+
+    def on_pubrel(&block)
+      @on_pubrel = block if block_given?
+      @on_pubrel
+    end
+
+    def on_pubcomp(&block)
+      @on_pubcomp = block if block_given?
+      @on_pubcomp
+    end
+
+    def on_message(&block)
+      @on_message = block if block_given?
+      @on_message
+    end
+
+    private
+
+
     def receive_packet
       begin
         result = IO.select([@socket], [], [], SELECT_TIMEOUT)
@@ -797,66 +858,6 @@ module PahoMqtt
 
       append_to_writing(packet)
       MQTT_ERR_SUCCESS
-    end
-
-    def add_topic_callback(topic, callback=nil, &block)
-      raise "Trying to register a callback for an undefined topic" if topic.nil?
-
-      remove_topic_callback(topic)
-      
-      if block_given?          
-        @registered_callback.push([topic, block])
-      elsif !(callback.nil?) && callback.class == Proc
-        @registered_callback.push([topic, callback])
-      end
-      MQTT_ERR_SUCCESS
-    end
-
-    def remove_topic_callback(topic)
-      raise "Trying to unregister a callback for an undefined topic" if topic.nil?
-
-      @registered_callback.delete_if {|pair| pair.first == topic}
-      MQTT_ERR_SUCCESS
-    end
-    
-    def on_connack(&block)
-      @on_connack = block if block_given?
-      @on_connack
-    end
-    
-    def on_suback(&block)
-      @on_suback = block if block_given?
-      @on_suback
-    end
-
-    def on_unsuback(&block)
-      @on_unsuback = block if block_given?
-      @on_unsuback
-    end
-    
-    def on_puback(&block)
-      @on_puback = block if block_given?
-      @on_puback
-    end
-
-    def on_pubrec(&block)
-      @on_pubrec = block if block_given?
-      @on_pubrec
-    end
-
-    def on_pubrel(&block)
-      @on_pubrel = block if block_given?
-      @on_pubrel
-    end
-
-    def on_pubcomp(&block)
-      @on_pubcomp = block if block_given?
-      @on_pubcomp
-    end
-
-    def on_message(&block)
-      @on_message = block if block_given?
-      @on_message
     end
 
     def match_filter(topics, filters)

@@ -3,7 +3,7 @@ $:.unshift(File.dirname(__FILE__))
 require 'spec_helper'
 
 describe PahoMqtt::Client do
-  context "From scrath" do
+  context "From scratch" do
     it "Initialize the client with default parameter" do
       client = PahoMqtt::Client.new
       expect(client.host).to eq("")
@@ -145,7 +145,7 @@ describe PahoMqtt::Client do
   end
   
   context "Already connected client" do
-    let(:client) { PahoMqtt::Client.new(:host => 'test.mosquitto.org', :ack_timeout => 2) }
+    let(:client) { PahoMqtt::Client.new(:host => 'localhost', :ack_timeout => 2) }
     let(:valid_topics) { Array({"/My_all_topic/#"=> 2, "My_private_topic" => 1}) }
     let(:invalid_topics) { Array({"" => 1, "topic_invalid_qos" => 42}) }
     let(:publish_content) { Hash(:topic => "My_private_topic", :payload => "Hello World!", :qos => 1, :retain => false) }
