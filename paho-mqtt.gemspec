@@ -1,11 +1,11 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'PahoMqttRuby/version'
+require 'paho.mqtt/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "PahoMqttRuby"
-  spec.version       = PahoMqttRuby::VERSION
+  spec.name          = "paho-mqtt"
+  spec.version       = PahoMqtt::VERSION
   spec.authors       = ["Pierre Goudet"]
   spec.email         = ["p-goudet@ruby-dev.jp"]
 
@@ -22,7 +22,7 @@ Gem::Specification.new do |spec|
     raise "RubyGems 2.0 or newer is required to protect against public gem pushes."
   end
 
-  spec.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
+  spec.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features|benchmark)/}) }
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]

@@ -1,6 +1,6 @@
 # encoding: BINARY
 
-module PahoMqttRuby
+module PahoMqtt
   # Class representing a MQTT Packet
   # Performs binary encoding and decoding of headers
   class Packet
@@ -100,7 +100,7 @@ module PahoMqttRuby
       unless byte.nil?
         # Work out the class
         type_id = ((byte & 0xF0) >> 4)
-        packet_class = PahoMqttRuby::PACKET_TYPES[type_id]
+        packet_class = PahoMqtt::PACKET_TYPES[type_id]
         if packet_class.nil?
           raise "Invalid packet type identifier: #{type_id}"
         end
@@ -133,7 +133,7 @@ module PahoMqttRuby
 
     # Get the identifer for this packet type
     def type_id
-      index = PahoMqttRuby::PACKET_TYPES.index(self.class)
+      index = PahoMqtt::PACKET_TYPES.index(self.class)
       if index.nil?
         raise "Invalid packet type: #{self.class}"
       end
@@ -289,7 +289,7 @@ module PahoMqttRuby
 
 
     # Class representing an MQTT Publish message
-    class Publish < PahoMqttRuby::Packet
+    class Publish < PahoMqtt::Packet
 
       # Duplicate delivery flag
       attr_accessor :duplicate
@@ -413,7 +413,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Connect Packet
-    class Connect < PahoMqttRuby::Packet
+    class Connect < PahoMqtt::Packet
       # The name of the protocol
       attr_accessor :protocol_name
 
@@ -558,7 +558,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Connect Acknowledgment Packet
-    class Connack < PahoMqttRuby::Packet
+    class Connack < PahoMqtt::Packet
       # Session Present flag
       attr_accessor :session_present
 
@@ -637,7 +637,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Publish Acknowledgment packet
-    class Puback < PahoMqttRuby::Packet
+    class Puback < PahoMqtt::Packet
       # Get serialisation of packet's body
       def encode_body
         encode_short(@id)
@@ -659,7 +659,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Publish Received packet
-    class Pubrec < PahoMqttRuby::Packet
+    class Pubrec < PahoMqtt::Packet
       # Get serialisation of packet's body
       def encode_body
         encode_short(@id)
@@ -681,7 +681,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Publish Release packet
-    class Pubrel < PahoMqttRuby::Packet
+    class Pubrel < PahoMqtt::Packet
 
       # Default attribute values
       ATTR_DEFAULTS = {
@@ -722,7 +722,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Publish Complete packet
-    class Pubcomp < PahoMqttRuby::Packet
+    class Pubcomp < PahoMqtt::Packet
       # Get serialisation of packet's body
       def encode_body
         encode_short(@id)
@@ -744,7 +744,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Client Subscribe packet
-    class Subscribe < PahoMqttRuby::Packet
+    class Subscribe < PahoMqtt::Packet
       # One or more topic filters to subscribe to
       attr_accessor :topics
 
@@ -844,7 +844,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Subscribe Acknowledgment packet
-    class Suback < PahoMqttRuby::Packet
+    class Suback < PahoMqtt::Packet
       # An array of return codes, ordered by the topics that were subscribed to
       attr_accessor :return_codes
 
@@ -896,7 +896,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Client Unsubscribe packet
-    class Unsubscribe < PahoMqttRuby::Packet
+    class Unsubscribe < PahoMqtt::Packet
       # One or more topic paths to unsubscribe from
       attr_accessor :topics
 
@@ -957,7 +957,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Unsubscribe Acknowledgment packet
-    class Unsuback < PahoMqttRuby::Packet
+    class Unsuback < PahoMqtt::Packet
       # Create a new Unsubscribe Acknowledgment packet
       def initialize(args={})
         super(args)
@@ -984,7 +984,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Ping Request packet
-    class Pingreq < PahoMqttRuby::Packet
+    class Pingreq < PahoMqtt::Packet
       # Create a new Ping Request packet
       def initialize(args={})
         super(args)
@@ -1000,7 +1000,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Ping Response packet
-    class Pingresp < PahoMqttRuby::Packet
+    class Pingresp < PahoMqtt::Packet
       # Create a new Ping Response packet
       def initialize(args={})
         super(args)
@@ -1016,7 +1016,7 @@ module PahoMqttRuby
     end
 
     # Class representing an MQTT Client Disconnect packet
-    class Disconnect < PahoMqttRuby::Packet
+    class Disconnect < PahoMqtt::Packet
       # Create a new Client Disconnect packet
       def initialize(args={})
         super(args)
@@ -1036,20 +1036,20 @@ module PahoMqttRuby
   # An enumeration of the MQTT packet types
   PACKET_TYPES = [
     nil,
-    PahoMqttRuby::Packet::Connect,
-    PahoMqttRuby::Packet::Connack,
-    PahoMqttRuby::Packet::Publish,
-    PahoMqttRuby::Packet::Puback,
-    PahoMqttRuby::Packet::Pubrec,
-    PahoMqttRuby::Packet::Pubrel,
-    PahoMqttRuby::Packet::Pubcomp,
-    PahoMqttRuby::Packet::Subscribe,
-    PahoMqttRuby::Packet::Suback,
-    PahoMqttRuby::Packet::Unsubscribe,
-    PahoMqttRuby::Packet::Unsuback,
-    PahoMqttRuby::Packet::Pingreq,
-    PahoMqttRuby::Packet::Pingresp,
-    PahoMqttRuby::Packet::Disconnect,
+    PahoMqtt::Packet::Connect,
+    PahoMqtt::Packet::Connack,
+    PahoMqtt::Packet::Publish,
+    PahoMqtt::Packet::Puback,
+    PahoMqtt::Packet::Pubrec,
+    PahoMqtt::Packet::Pubrel,
+    PahoMqtt::Packet::Pubcomp,
+    PahoMqtt::Packet::Subscribe,
+    PahoMqtt::Packet::Suback,
+    PahoMqtt::Packet::Unsubscribe,
+    PahoMqtt::Packet::Unsuback,
+    PahoMqtt::Packet::Pingreq,
+    PahoMqtt::Packet::Pingresp,
+    PahoMqtt::Packet::Disconnect,
     nil
   ]
 

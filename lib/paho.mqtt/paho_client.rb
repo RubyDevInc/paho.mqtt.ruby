@@ -1,7 +1,7 @@
 require 'openssl'
 require 'socket'
 
-module PahoMqttRuby
+module PahoMqtt
   DEFAULT_SSL_PORT = 8883
   DEFAULT_PORT = 1883
   SELECT_TIMEOUT = 0
@@ -115,7 +115,7 @@ module PahoMqttRuby
       end
 
       if @port.nil?
-        @port = @ssl ? PahoMqttRuby::DEFAULT_SSL_PORT : PahoMqttRuby::DEFAULT_PORT
+        @port = @ssl ? PahoMqtt::DEFAULT_SSL_PORT : PahoMqtt::DEFAULT_PORT
       end
 
       if  @client_id.nil? || @client_id == ""
@@ -353,7 +353,7 @@ module PahoMqttRuby
         cnt = 0
         queue.each do |pck|
           if now >= pck[:timestamp] + @ack_timeout
-            pck[:packet].dup ||= true unless pck[:packet].class == PahoMqttRuby::Packet::Subscribe || pck[:packet].class == PahoMqttRuby::Packet::Unsubscribe
+            pck[:packet].dup ||= true unless pck[:packet].class == PahoMqtt::Packet::Subscribe || pck[:packet].class == PahoMqtt::Packet::Unsubscribe
             unless cnt > max_packet
               append_to_writing(pck[:packet]) 
               pck[:timestamp] = now
@@ -374,7 +374,7 @@ module PahoMqttRuby
     def config_subscription
       unless @subscribed_topics == []
         new_id = next_packet_id
-        packet = PahoMqttRuby::Packet::Subscribe.new(
+        packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
           :topics => @subscribed_topics
         )
@@ -473,11 +473,13 @@ module PahoMqttRuby
       end
     end
     
+    private
+    
     def receive_packet
       begin
         result = IO.select([@socket], [], [], SELECT_TIMEOUT)
         unless result.nil?
-          packet = PahoMqttRuby::Packet.read(@socket)
+          packet = PahoMqtt::Packet.read(@socket)
           unless packet.nil?
             handle_packet packet
             @last_ping_resp = Time.now
@@ -493,23 +495,23 @@ module PahoMqttRuby
     end
     
     def handle_packet(packet)
-      if packet.class == PahoMqttRuby::Packet::Connack
+      if packet.class == PahoMqtt::Packet::Connack
         handle_connack(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Suback
+      elsif packet.class == PahoMqtt::Packet::Suback
         handle_suback(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Unsuback
+      elsif packet.class == PahoMqtt::Packet::Unsuback
         handle_unsuback(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Publish
+      elsif packet.class == PahoMqtt::Packet::Publish
         handle_publish(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Puback
+      elsif packet.class == PahoMqtt::Packet::Puback
         handle_puback(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Pubrec
+      elsif packet.class == PahoMqtt::Packet::Pubrec
         handle_pubrec(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Pubrel
+      elsif packet.class == PahoMqtt::Packet::Pubrel
         handle_pubrel(packet)
-      elsif packet.class == PahoMqttRuby::Packet::Pubcomp
+      elsif packet.class == PahoMqtt::Packet::Pubcomp
         handle_pubcomp(packet)
-      elsif packet.class ==PahoMqttRuby::Packet::Pingresp
+      elsif packet.class ==PahoMqtt::Packet::Pingresp
         handle_pingresp
       else
         raise "Unknow packet received"
@@ -665,7 +667,7 @@ module PahoMqttRuby
     end
     
     def send_connect
-      packet = PahoMqttRuby::Packet::Connect.new(
+      packet = PahoMqtt::Packet::Connect.new(
         :version => @mqtt_version,
         :clean_session => @clean_session,
         :keep_alive => @keep_alive,
@@ -681,12 +683,12 @@ module PahoMqttRuby
     end
 
     def send_disconnect
-      packet = PahoMqttRuby::Packet::Disconnect.new
+      packet = PahoMqtt::Packet::Disconnect.new
       send_packet(packet)
     end
 
     def send_pingreq
-      packet = PahoMqttRuby::Packet::Pingreq.new
+      packet = PahoMqtt::Packet::Pingreq.new
       # TODO => MOVE TO LOGGER
       #      puts "Check if the connection is still alive."
       send_packet(packet)
@@ -695,7 +697,7 @@ module PahoMqttRuby
     def send_subscribe(topics)
       unless topics.length == 0
         new_id = next_packet_id
-        packet = PahoMqttRuby::Packet::Subscribe.new(
+        packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
           :topics => topics
         )        
@@ -713,7 +715,7 @@ module PahoMqttRuby
     def send_unsubscribe(topics)
       unless topics.length == 0
         new_id = next_packet_id
-        packet = PahoMqttRuby::Packet::Unsubscribe.new(
+        packet = PahoMqtt::Packet::Unsubscribe.new(
           :id => new_id,
           :topics => topics
         )
@@ -730,7 +732,7 @@ module PahoMqttRuby
 
     def send_publish(topic, payload, retain, qos)
       new_id = next_packet_id
-      packet = PahoMqttRuby::Packet::Publish.new(
+      packet = PahoMqtt::Packet::Publish.new(
         :id => new_id,
         :topic => topic,
         :payload => payload,
@@ -754,7 +756,7 @@ module PahoMqttRuby
     end
 
     def send_puback(packet_id)
-      packet = PahoMqttRuby::Packet::Puback.new(
+      packet = PahoMqtt::Packet::Puback.new(
         :id => packet_id
       )
 
@@ -763,7 +765,7 @@ module PahoMqttRuby
     end
 
     def send_pubrec(packet_id)
-      packet = PahoMqttRuby::Packet::Pubrec.new(
+      packet = PahoMqtt::Packet::Pubrec.new(
         :id => packet_id
       )
 
@@ -776,7 +778,7 @@ module PahoMqttRuby
     end
     
     def send_pubrel(packet_id)
-      packet = PahoMqttRuby::Packet::Pubrel.new(
+      packet = PahoMqtt::Packet::Pubrel.new(
         :id => packet_id
       )
 
@@ -789,7 +791,7 @@ module PahoMqttRuby
     end
 
     def send_pubcomp(packet_id)
-      packet = PahoMqttRuby::Packet::Pubcomp.new(
+      packet = PahoMqtt::Packet::Pubcomp.new(
         :id => packet_id
       )
 
@@ -856,8 +858,6 @@ module PahoMqttRuby
       @on_message = block if block_given?
       @on_message
     end
-
-    private
 
     def match_filter(topics, filters)
       if topics.is_a?(String) && filters.is_a?(String)

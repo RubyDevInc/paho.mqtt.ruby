@@ -1,8 +1,8 @@
 require 'spec_helper'
 
-describe PahoMqttRuby do
+describe PahoMqtt do
   it 'has a version number' do
-    expect(PahoMqttRuby::VERSION).not_to be nil
+    expect(PahoMqtt::VERSION).not_to be nil
   end
 
   it 'does something useful' do
