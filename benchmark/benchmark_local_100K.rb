@@ -1,8 +1,6 @@
 require 'benchmark'
 require 'PahoMqttRuby'
 
-
-
 client = PahoMqttRuby::Client.new(:host => 'localhost', :port => 1883)
 
 client.connect
@@ -18,7 +16,7 @@ while suback do
   sleep 0.001
 end
 
-payload = "a" * 1024
+payload = "a" * 128
 
 Benchmark.bmbm do |x|
   x.report("Send 1 message with callback") do

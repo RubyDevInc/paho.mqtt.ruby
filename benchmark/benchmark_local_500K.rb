@@ -11,6 +11,13 @@ client.on_message do
   message += 1
 end
 
+suback = true
+client.on_suback { suback = false }
+client.subscribe(["My_topic/levelx", 2])
+while suback do
+  sleep 0.001
+end
+
 payload = "a" * 512
 
 Benchmark.bmbm do |x|
