@@ -1,7 +1,6 @@
 # encoding: BINARY
 
-module PahoRuby
-
+module PahoMqtt
   # Class representing a MQTT Packet
   # Performs binary encoding and decoding of headers
   class Packet
@@ -30,25 +29,26 @@ module PahoRuby
       packet = create_from_header(
         read_byte(socket)
       )
-      packet.validate_flags
+      unless packet.nil?
+        packet.validate_flags
 
-      # Read in the packet length
-      multiplier = 1
-      body_length = 0
-      pos = 1
-      begin
-        digit = read_byte(socket)
-        body_length += ((digit & 0x7F) * multiplier)
-        multiplier *= 0x80
-        pos += 1
-      end while ((digit & 0x80) != 0x00) and pos <= 4
+        # Read in the packet length
+        multiplier = 1
+        body_length = 0
+        pos = 1
+        begin
+          digit = read_byte(socket)
+          body_length += ((digit & 0x7F) * multiplier)
+          multiplier *= 0x80
+          pos += 1
+        end while ((digit & 0x80) != 0x00) and pos <= 4
 
-      # Store the expected body length in the packet
-      packet.instance_variable_set('@body_length', body_length)
+        # Store the expected body length in the packet
+        packet.instance_variable_set('@body_length', body_length)
 
-      # Read in the packet body
-      packet.parse_body( socket.read(body_length) )
-      
+        # Read in the packet body
+        packet.parse_body( socket.read(body_length) )
+      end
       return packet
     end
 
@@ -64,7 +64,7 @@ module PahoRuby
     def self.parse_header(buffer)
       # Check that the packet is a long as the minimum packet size
       if buffer.bytesize < 2
-        raise ProtocolException.new("Invalid packet: less than 2 bytes long")
+        raise "Invalid packet: less than 2 bytes long"
       end
 
       # Create a new packet object
@@ -78,7 +78,7 @@ module PahoRuby
       pos = 1
       begin
         if buffer.bytesize <= pos
-          raise ProtocolException.new("The packet length header is incomplete")
+          raise "The packet length header is incomplete"
         end
         digit = bytes[pos]
         body_length += ((digit & 0x7F) * multiplier)
@@ -97,18 +97,20 @@ module PahoRuby
 
     # Create a new packet object from the first byte of a MQTT packet
     def self.create_from_header(byte)
-      # Work out the class
-      type_id = ((byte & 0xF0) >> 4)
-      packet_class = PahoRuby::PACKET_TYPES[type_id]
-      if packet_class.nil?
-        raise ProtocolException.new("Invalid packet type identifier: #{type_id}")
+      unless byte.nil?
+        # Work out the class
+        type_id = ((byte & 0xF0) >> 4)
+        packet_class = PahoMqtt::PACKET_TYPES[type_id]
+        if packet_class.nil?
+          raise "Invalid packet type identifier: #{type_id}"
+        end
+
+        # Convert the last 4 bits of byte into array of true/false
+        flags = (0..3).map { |i| byte & (2 ** i) != 0 }
+
+        # Create a new packet object
+        packet_class.new(:flags => flags)
       end
-
-      # Convert the last 4 bits of byte into array of true/false
-      flags = (0..3).map { |i| byte & (2 ** i) != 0 }
-
-      # Create a new packet object
-      packet_class.new(:flags => flags)
     end
 
     # Create a new empty packet
@@ -131,7 +133,7 @@ module PahoRuby
 
     # Get the identifer for this packet type
     def type_id
-      index = PahoRuby::PACKET_TYPES.index(self.class)
+      index = PahoMqtt::PACKET_TYPES.index(self.class)
       if index.nil?
         raise "Invalid packet type: #{self.class}"
       end
@@ -159,9 +161,7 @@ module PahoRuby
     # Parse the body (variable header and payload) of a packet
     def parse_body(buffer)
       if buffer.bytesize != body_length
-        raise ProtocolException.new(
-          "Failed to parse packet - input buffer (#{buffer.bytesize}) is not the same as the body length header (#{body_length})"
-        )
+        raise "Failed to parse packet - input buffer (#{buffer.bytesize}) is not the same as the body length header (#{body_length})"
       end
     end
 
@@ -169,7 +169,6 @@ module PahoRuby
     def encode_body
       '' # No body by default
     end
-
 
     # Serialise the packet
     def to_s
@@ -208,7 +207,7 @@ module PahoRuby
     # @private
     def validate_flags
       if flags != [false, false, false, false]
-        raise ProtocolException.new("Invalid flags in #{type_name} packet header")
+        raise "Invalid flags in #{type_name} packet header"
       end
     end
 
@@ -279,19 +278,18 @@ module PahoRuby
     # Read and unpack a single byte from a socket
     def self.read_byte(socket)
       byte = socket.read(1)
-      if byte.nil?
-        raise ProtocolException.new("Failed to read byte from socket")
+      unless byte.nil?
+        byte.unpack('C').first
+      else
+        nil
       end
-      byte.unpack('C').first
     end
-
-
 
     ## PACKET SUBCLASSES ##
 
 
     # Class representing an MQTT Publish message
-    class Publish < PahoRuby::Packet
+    class Publish < PahoMqtt::Packet
 
       # Duplicate delivery flag
       attr_accessor :duplicate
@@ -384,10 +382,10 @@ module PahoRuby
       # @private
       def validate_flags
         if qos == 3
-          raise ProtocolException.new("Invalid packet: QoS value of 3 is not allowed")
+          raise "Invalid packet: QoS value of 3 is not allowed"
         end
         if qos == 0 and duplicate
-          raise ProtocolException.new("Invalid packet: DUP cannot be set for QoS 0")
+          raise "Invalid packet: DUP cannot be set for QoS 0"
         end
       end
 
@@ -415,7 +413,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Connect Packet
-    class Connect < PahoRuby::Packet
+    class Connect < PahoMqtt::Packet
       # The name of the protocol
       attr_accessor :protocol_name
 
@@ -524,9 +522,7 @@ module PahoRuby
         elsif @protocol_name == 'MQTT' and @protocol_level == 4
           @version = '3.1.1'
         else
-          raise ProtocolException.new(
-            "Unsupported protocol: #{@protocol_name}/#{@protocol_level}"
-          )
+          raise "Unsupported protocol: #{@protocol_name}/#{@protocol_level}"
         end
 
         @connect_flags = shift_byte(buffer)
@@ -562,7 +558,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Connect Acknowledgment Packet
-    class Connack < PahoRuby::Packet
+    class Connack < PahoMqtt::Packet
       # Session Present flag
       attr_accessor :session_present
 
@@ -626,11 +622,11 @@ module PahoRuby
         super(buffer)
         @connack_flags = shift_bits(buffer)
         unless @connack_flags[1,7] == [false, false, false, false, false, false, false]
-          raise ProtocolException.new("Invalid flags in Connack variable header")
+          raise "Invalid flags in Connack variable header"
         end
         @return_code = shift_byte(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Connect Acknowledgment packet")
+          raise "Extra bytes at end of Connect Acknowledgment packet"
         end
       end
 
@@ -641,7 +637,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Publish Acknowledgment packet
-    class Puback < PahoRuby::Packet
+    class Puback < PahoMqtt::Packet
       # Get serialisation of packet's body
       def encode_body
         encode_short(@id)
@@ -652,7 +648,7 @@ module PahoRuby
         super(buffer)
         @id = shift_short(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Publish Acknowledgment packet")
+          raise "Extra bytes at end of Publish Acknowledgment packet"
         end
       end
 
@@ -663,7 +659,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Publish Received packet
-    class Pubrec < PahoRuby::Packet
+    class Pubrec < PahoMqtt::Packet
       # Get serialisation of packet's body
       def encode_body
         encode_short(@id)
@@ -674,7 +670,7 @@ module PahoRuby
         super(buffer)
         @id = shift_short(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Publish Received packet")
+          raise "Extra bytes at end of Publish Received packet"
         end
       end
 
@@ -685,7 +681,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Publish Release packet
-    class Pubrel < PahoRuby::Packet
+    class Pubrel < PahoMqtt::Packet
 
       # Default attribute values
       ATTR_DEFAULTS = {
@@ -707,7 +703,7 @@ module PahoRuby
         super(buffer)
         @id = shift_short(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Publish Release packet")
+          raise "Extra bytes at end of Publish Release packet"
         end
       end
 
@@ -715,7 +711,7 @@ module PahoRuby
       # @private
       def validate_flags
         if @flags != [false, true, false, false]
-          raise ProtocolException.new("Invalid flags in PUBREL packet header")
+          raise "Invalid flags in PUBREL packet header"
         end
       end
 
@@ -726,7 +722,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Publish Complete packet
-    class Pubcomp < PahoRuby::Packet
+    class Pubcomp < PahoMqtt::Packet
       # Get serialisation of packet's body
       def encode_body
         encode_short(@id)
@@ -737,7 +733,7 @@ module PahoRuby
         super(buffer)
         @id = shift_short(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Publish Complete packet")
+          raise "Extra bytes at end of Publish Complete packet"
         end
       end
 
@@ -748,7 +744,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Client Subscribe packet
-    class Subscribe < PahoRuby::Packet
+    class Subscribe < PahoMqtt::Packet
       # One or more topic filters to subscribe to
       attr_accessor :topics
 
@@ -834,7 +830,7 @@ module PahoRuby
       # @private
       def validate_flags
         if @flags != [false, true, false, false]
-          raise ProtocolException.new("Invalid flags in SUBSCRIBE packet header")
+          raise "Invalid flags in SUBSCRIBE packet header"
         end
       end
 
@@ -848,7 +844,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Subscribe Acknowledgment packet
-    class Suback < PahoRuby::Packet
+    class Suback < PahoMqtt::Packet
       # An array of return codes, ordered by the topics that were subscribed to
       attr_accessor :return_codes
 
@@ -900,7 +896,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Client Unsubscribe packet
-    class Unsubscribe < PahoRuby::Packet
+    class Unsubscribe < PahoMqtt::Packet
       # One or more topic paths to unsubscribe from
       attr_accessor :topics
 
@@ -947,7 +943,7 @@ module PahoRuby
       # @private
       def validate_flags
         if @flags != [false, true, false, false]
-          raise ProtocolException.new("Invalid flags in UNSUBSCRIBE packet header")
+          raise "Invalid flags in UNSUBSCRIBE packet header"
         end
       end
 
@@ -961,7 +957,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Unsubscribe Acknowledgment packet
-    class Unsuback < PahoRuby::Packet
+    class Unsuback < PahoMqtt::Packet
       # Create a new Unsubscribe Acknowledgment packet
       def initialize(args={})
         super(args)
@@ -977,7 +973,7 @@ module PahoRuby
         super(buffer)
         @id = shift_short(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Unsubscribe Acknowledgment packet")
+          raise "Extra bytes at end of Unsubscribe Acknowledgment packet"
         end
       end
 
@@ -988,7 +984,7 @@ module PahoRuby
     end
 
     # Class representing an MQTT Ping Request packet
-    class Pingreq < PahoRuby::Packet
+    class Pingreq < PahoMqtt::Packet
       # Create a new Ping Request packet
       def initialize(args={})
         super(args)
@@ -998,13 +994,13 @@ module PahoRuby
       def parse_body(buffer)
         super(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Ping Request packet")
+          raise "Extra bytes at end of Ping Request packet"
         end
       end
     end
 
     # Class representing an MQTT Ping Response packet
-    class Pingresp < PahoRuby::Packet
+    class Pingresp < PahoMqtt::Packet
       # Create a new Ping Response packet
       def initialize(args={})
         super(args)
@@ -1014,13 +1010,13 @@ module PahoRuby
       def parse_body(buffer)
         super(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Ping Response packet")
+          raise "Extra bytes at end of Ping Response packet"
         end
       end
     end
 
     # Class representing an MQTT Client Disconnect packet
-    class Disconnect < PahoRuby::Packet
+    class Disconnect < PahoMqtt::Packet
       # Create a new Client Disconnect packet
       def initialize(args={})
         super(args)
@@ -1030,7 +1026,7 @@ module PahoRuby
       def parse_body(buffer)
         super(buffer)
         unless buffer.empty?
-          raise ProtocolException.new("Extra bytes at end of Disconnect packet")
+          raise "Extra bytes at end of Disconnect packet"
         end
       end
     end
@@ -1040,20 +1036,20 @@ module PahoRuby
   # An enumeration of the MQTT packet types
   PACKET_TYPES = [
     nil,
-    PahoRuby::Packet::Connect,
-    PahoRuby::Packet::Connack,
-    PahoRuby::Packet::Publish,
-    PahoRuby::Packet::Puback,
-    PahoRuby::Packet::Pubrec,
-    PahoRuby::Packet::Pubrel,
-    PahoRuby::Packet::Pubcomp,
-    PahoRuby::Packet::Subscribe,
-    PahoRuby::Packet::Suback,
-    PahoRuby::Packet::Unsubscribe,
-    PahoRuby::Packet::Unsuback,
-    PahoRuby::Packet::Pingreq,
-    PahoRuby::Packet::Pingresp,
-    PahoRuby::Packet::Disconnect,
+    PahoMqtt::Packet::Connect,
+    PahoMqtt::Packet::Connack,
+    PahoMqtt::Packet::Publish,
+    PahoMqtt::Packet::Puback,
+    PahoMqtt::Packet::Pubrec,
+    PahoMqtt::Packet::Pubrel,
+    PahoMqtt::Packet::Pubcomp,
+    PahoMqtt::Packet::Subscribe,
+    PahoMqtt::Packet::Suback,
+    PahoMqtt::Packet::Unsubscribe,
+    PahoMqtt::Packet::Unsuback,
+    PahoMqtt::Packet::Pingreq,
+    PahoMqtt::Packet::Pingresp,
+    PahoMqtt::Packet::Disconnect,
     nil
   ]
 
