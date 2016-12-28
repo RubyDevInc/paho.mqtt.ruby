@@ -175,7 +175,10 @@ module PahoMqtt
       end
 
       unless @host.nil? || @port < 0
-        tcp_socket = TCPSocket.new(@host, @port)
+        begin
+          tcp_socket = TCPSocket.new(@host, @port)
+        rescue Exception => exp
+        end
       end
 
       if @ssl
@@ -255,12 +258,14 @@ module PahoMqtt
       # TODO => MOVE TO LOGGER
       #      puts "Try to connect to #{@host}"
       config_socket
-      send_connect
 
-      # Waiting a Connack packet for "ack_timeout" second from the remote 
-      connect_timeout = Time.now + @ack_timeout
-      while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
-        receive_packet
+      unless @socket.nil?
+        send_connect
+        # Waiting a Connack packet for "ack_timeout" second from the remote
+        connect_timeout = Time.now + @ack_timeout
+        while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
+          receive_packet
+        end
       end
 
       if @connection_state != MQTT_CS_CONNECTED
@@ -268,7 +273,6 @@ module PahoMqtt
       # puts "Didn't receive Connack answer from server #{@host}"
       else
         config_subscription
-        config_all_message_queue
         @mqtt_thread = Thread.new do
           @reconnect_thread.kill unless @reconnect_thread.nil? || !@reconnect_thread.alive?
           while @connection_state == MQTT_CS_CONNECTED do
@@ -402,7 +406,7 @@ module PahoMqtt
         queue.each do |pck|
           pck[:packet].dup ||= true
           if cnt <= max_packet
-            append_to_writing(pck)
+            append_to_writing(pck[:packet])
             cnt += 1
           end
         end
@@ -417,9 +421,7 @@ module PahoMqtt
         send_disconnect
         @mqtt_thread.kill if @mqtt_thread && @mqtt_thread.alive?
         @mqtt_thread.kill if @mqtt_thread.alive?
-
-        @socket.close unless @socket.nil?
-        @socket = nil
+        @last_packet_id = 0
 
         @writing_mutex.synchronize {
           @writing_queue = []
@@ -442,11 +444,13 @@ module PahoMqtt
         }
       end
 
+      @socket.close unless @socket.nil?
+      @socket = nil
+
       @connection_state_mutex.synchronize {
         @connection_state = MQTT_CS_DISCONNECT
       }
 
-      @last_packet_id = 0
       MQTT_ERR_SUCCESS
     end
     
@@ -535,10 +539,9 @@ module PahoMqtt
 
     private
 
-
     def receive_packet
       begin
-        result = IO.select([@socket], [], [], SELECT_TIMEOUT)
+        result = IO.select([@socket], [], [], SELECT_TIMEOUT) unless @socket.nil?
         unless result.nil?
           packet = PahoMqtt::Packet.read(@socket)
           unless packet.nil?
@@ -547,11 +550,12 @@ module PahoMqtt
           end
         end
       rescue Exception => exp
-        unless @socket.nil?
-          @socket.close
-          @socket = nil
+        disconnect(false)
+        if @persistent
+          reconnect(RECONNECT_RETRY_TIME, RECONNECT_RETRY_TEMPO)
+        else
+          raise(exp)
         end
-        raise(exp)
       end
     end
     
