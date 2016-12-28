@@ -265,6 +265,7 @@ module PahoMqtt
         connect_timeout = Time.now + @ack_timeout
         while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
           receive_packet
+          sleep 0.0001
         end
       end
 
