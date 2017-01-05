@@ -1,5 +1,4 @@
-require "../lib/paho.mqtt/paho_client"
-require "../lib/paho.mqtt/packet_manager"
+require "paho-mqtt"
 require "logger"
 
 file = File.open('paho.log', "a+")
@@ -8,7 +7,7 @@ log = Logger.new(file)
 log.level = Logger::DEBUG
 
 #cli = PahoMqtt::Client.new
-cli = PahoMqtt::Client.new({logger: log, persistent: true})
+cli = PahoMqtt::Client.new({logger: log, persistent: true, keep_alive: 7})
 
 #cli.ssl = true
 #cli.config_ssl_context("/Users/Pierre/certs/test/mykey.crt", "/Users/Pierre/certs/test/mykey.key")
@@ -73,6 +72,6 @@ sleep cli.ack_timeout
 
 cli.unsubscribe('+/tutu', "+/+")
 
-sleep 13
+sleep 40
 
 cli.disconnect
