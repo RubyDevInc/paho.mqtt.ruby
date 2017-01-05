@@ -1,6 +1,7 @@
 $:.unshift(File.dirname(__FILE__))
 
 require 'spec_helper'
+require 'pp'
 
 describe PahoMqtt::Client do
   context "From scratch" do
@@ -92,7 +93,7 @@ describe PahoMqtt::Client do
   end
 
   context "With a defined host" do
-    let(:client) { PahoMqtt::Client.new(:host => 'test.mosquitto.org') }
+    let(:client) { PahoMqtt::Client.new(:host => 'localhost') }
     before(:each) do
       expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_DISCONNECT)
     end
@@ -101,6 +102,7 @@ describe PahoMqtt::Client do
       client.connect(client.host, client.port, 20)
       expect(client.keep_alive).to eq(20)
       expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      client.disconnect
     end
 
     it "Connect with encrypted mode" do
@@ -108,6 +110,7 @@ describe PahoMqtt::Client do
       client.config_ssl_context(cert_path('client.crt'), cert_path('client.key'))
       client.connect(client.host, client.port)
       expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      client.disconnect
     end
    
     it "Connect and verify the on_connack callback" do
