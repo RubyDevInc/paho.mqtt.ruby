@@ -96,7 +96,7 @@ module PahoMqtt
       :will_payload => nil,
       :will_qos => 0,
       :will_retain => false,
-      :keep_alive => 6,
+      :keep_alive => 60,
       :ack_timeout => 5,
       :on_connack => nil,
       :on_suback => nil,
@@ -486,9 +486,10 @@ module PahoMqtt
     end
     
     def add_topic_callback(topic, callback=nil, &block)
-      @logger.error("The topics where the callback is trying to be registered have been found nil.") if @logger.is_a?(Logger)
-      raise "Trying to register a callback for an undefined topic" if topic.nil?
-
+      if topic.nil?
+        @logger.error("The topics where the callback is trying to be registered have been found nil.") if @logger.is_a?(Logger)
+        raise "Trying to register a callback for an undefined topic"
+      end
       remove_topic_callback(topic)
 
       if block_given?
@@ -500,9 +501,10 @@ module PahoMqtt
     end
 
     def remove_topic_callback(topic)
-      @logger.error("The topics where the callback is trying to be unregistered have been found nil.") if @logger.is_a?(Logger)
-      raise "Trying to unregister a callback for an undefined topic" if topic.nil?
-
+      if topic.nil?
+        @logger.error("The topics where the callback is trying to be unregistered have been found nil.") if @logger.is_a?(Logger)
+        raise "Trying to unregister a callback for an undefined topic"
+      end
       @registered_callback.delete_if {|pair| pair.first == topic}
       MQTT_ERR_SUCCESS
     end
