@@ -1,5 +1,6 @@
 require 'openssl'
 require 'socket'
+require 'logger'
 
 module PahoMqtt
   DEFAULT_SSL_PORT = 8883
@@ -40,6 +41,9 @@ module PahoMqtt
     MQTT_ERR_ACL_DENIED = 12
     MQTT_ERR_UNKNOWN = 13
     MQTT_ERR_ERRNO = 14
+
+    # Log file
+    attr_accessor :logger
     
     # Connection related attributes:
     attr_accessor :host
@@ -78,6 +82,7 @@ module PahoMqtt
     attr_reader :connection_state
 
     ATTR_DEFAULTS = {
+      :logger => nil,
       :host => "",
       :port => nil,
       :mqtt_version => '3.1.1',
@@ -91,7 +96,7 @@ module PahoMqtt
       :will_payload => nil,
       :will_qos => 0,
       :will_retain => false,
-      :keep_alive => 10,
+      :keep_alive => 6,
       :ack_timeout => 5,
       :on_connack => nil,
       :on_suback => nil,
@@ -187,6 +192,7 @@ module PahoMqtt
           @socket.sync_close = true
           @socket.connect
         else
+          @logger.error("The ssl context was found as nil while the socket's opening.") if @logger.is_a?(Logger)
           raise "SSL context should be defined and set to open SSLSocket"
         end
       else
@@ -242,10 +248,12 @@ module PahoMqtt
     def setup_connection
       @mqtt_thread.kill unless @mqtt_thread.nil? 
       if @host.nil? || @host == ""
+        @logger.error("The host was found as nil while the connection setup.") if @logger.is_a?(Logger)
         raise "Connection Failed, host cannot be nil or empty"
       end
 
       if @port.to_i <= 0
+        @logger.error("The port value is invalid (<= 0). Could not setup the connection.") if @logger.is_a?(Logger)
         raise "Connection Failed port cannot be 0 >="
       end
 
@@ -255,8 +263,7 @@ module PahoMqtt
       @last_ping_req = Time.now
       @last_ping_resp = Time.now
 
-      # TODO => MOVE TO LOGGER
-      #      puts "Try to connect to #{@host}"
+      @logger.debug("Atempt to connect to host: #{@host}") if @logger.is_a?(Logger)
       config_socket
 
       unless @socket.nil?
@@ -270,8 +277,7 @@ module PahoMqtt
       end
 
       if @connection_state != MQTT_CS_CONNECTED
-      # TODO => MOVE TO LOGGER
-      # puts "Didn't receive Connack answer from server #{@host}"
+        @logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}") if @logger.is_a?(Logger)
       else
         config_subscription
         @mqtt_thread = Thread.new do
@@ -328,8 +334,7 @@ module PahoMqtt
 
         timeout_resp = @last_ping_resp + (@keep_alive * 1.1).ceil
         if timeout_resp <= now
-          # TODO => MOVE TO LOGGER
-          #puts "Didn't get answer from server for a long time, trying to reconnect."
+          @logger.debug("No activity over timeout, trying to reconnect to #{@host}") if @logger.is_a?(Logger)
           disconnect(false)
           reconnect(RECONNECT_RETRY_TIME, RECONNECT_RETRY_TEMPO) if @persistent
         end
@@ -339,8 +344,7 @@ module PahoMqtt
     def reconnect(retry_time=3, retry_tempo=3)
       @reconnect_thread = Thread.new do
         retry_time.times do
-          # TODO => MOVE TO LOGGER
-          # puts "Retrying to connect"
+          @logger.debug("New reconnect atempt...") if @logger.is_a?(Logger)
           setup_connection
           if @connection_state == MQTT_CS_CONNECTED
             break
@@ -348,6 +352,7 @@ module PahoMqtt
             sleep retry_tempo
           end
         end
+        @logger.error("Reconnection atempt counter is over.") if @logger.is_a?(Logger)
         raise "Reconnection retry counter is over (#{RECONNECT_RETRY_TIME}), could not reconnect to the server."
       end
     end
@@ -415,9 +420,8 @@ module PahoMqtt
     end
     
     def disconnect(explicit=true)
-      # TODO => MOVE TO LOGGER
-      #      puts "Disconnecting"
-      
+      @logger.debug("Disconnecting from #{@host}") if @logger.is_a?(Logger)
+
       if explicit
         send_disconnect
         @mqtt_thread.kill if @mqtt_thread && @mqtt_thread.alive?
@@ -457,6 +461,7 @@ module PahoMqtt
     
     def publish(topic, payload="", retain=false, qos=0)
       if topic == "" || !topic.is_a?(String)
+        @logger.error("Publish topics is invalid, not a string or empty.") if @logger.is_a?(Logger)
         raise "Publish error, topic is empty or invalid"
       end
       send_publish(topic, payload, retain, qos)
@@ -466,19 +471,22 @@ module PahoMqtt
       unless topics.length == 0
         send_subscribe(topics)
       else
+        @logger.error("Subscribe topics need one topic or a list of topics.") if @logger.is_a?(Logger)
         raise "Protocol Violation, subscribe topics list must not be empty."
       end
     end
 
-    def unsubscribe(topics)
+    def unsubscribe(*topics)
       unless topics.length == 0
         send_unsubscribe(topics)
       else
+        @logger.error("Unsubscribe need at least one topics.") if @logger.is_a?(Logger)
         raise "Protocol Violation, unsubscribe topics list must not be empty."
       end
     end
     
     def add_topic_callback(topic, callback=nil, &block)
+      @logger.error("The topics where the callback is trying to be registered have been found nil.") if @logger.is_a?(Logger)
       raise "Trying to register a callback for an undefined topic" if topic.nil?
 
       remove_topic_callback(topic)
@@ -492,6 +500,7 @@ module PahoMqtt
     end
 
     def remove_topic_callback(topic)
+      @logger.error("The topics where the callback is trying to be unregistered have been found nil.") if @logger.is_a?(Logger)
       raise "Trying to unregister a callback for an undefined topic" if topic.nil?
 
       @registered_callback.delete_if {|pair| pair.first == topic}
@@ -555,12 +564,14 @@ module PahoMqtt
         if @persistent
           reconnect(RECONNECT_RETRY_TIME, RECONNECT_RETRY_TEMPO)
         else
+          @logger.error("The packet reading have failed.") if @logger.is_a?(Logger)
           raise(exp)
         end
       end
     end
     
-    def handle_packet(packet)
+    def handle_packet(packet)      
+      @logger.info("New packet #{packet.class} recieved.") if @logger.is_a?(Logger)
       if packet.class == PahoMqtt::Packet::Connack
         handle_connack(packet)
       elsif packet.class == PahoMqtt::Packet::Suback
@@ -577,23 +588,23 @@ module PahoMqtt
         handle_pubrel(packet)
       elsif packet.class == PahoMqtt::Packet::Pubcomp
         handle_pubcomp(packet)
-      elsif packet.class ==PahoMqtt::Packet::Pingresp
+      elsif packet.class == PahoMqtt::Packet::Pingresp
         handle_pingresp
       else
+        @logger.error("The packets header is invalid for packet: #{packet}") if @logger.is_a?(Logger)
         raise "Unknow packet received"
       end
     end
 
     def handle_connack(packet)
-      if packet.return_code == 0x00        
-      # TODO => MOVE TO LOGGER
-        #        puts "Connection accepted, ready to process"
+      if packet.return_code == 0x00
+        @logger.debug("Connack receive and connection accepted.") if @logger.is_a?(Logger)
         if @clean_session && !packet.session_present
-        #        puts "New session created"
+          @logger.debug("New session created for the client") if @logger.is_a?(Logger)
         elsif !@clean_session && !packet.session_present
-        #       puts "Could not find session on server side, starting a new one."
+          @logger.debug("No previous session found by server, starting a new one.") if @logger.is_a?(Logger)
         elsif !@clean_session && packet.session_present
-          #   puts "Retrieving previous session on server side."
+          @logger.debug("Previous session restored by the server.") if @logger.is_a?(Logger)
         end
         @connection_state_mutex.synchronize{
           @connection_state = MQTT_CS_CONNECTED
@@ -628,10 +639,12 @@ module PahoMqtt
           elsif max_qos[0] == 128
             adjust_qos.delete(t)
           else
+            @logger.error("The qos value is invalid in subscribe.") if @logger.is_a?(Logger)
             raise "Invalid qos value used."
           end
         end
       else
+        @logger.error("The packet id is invalid, already used.") if @logger.is_a?(Logger)
         raise "Two packet subscribe packet cannot have the same id"
       end
       @subscribed_mutex.synchronize {
@@ -649,6 +662,7 @@ module PahoMqtt
       if to_unsub.length == 1
         to_unsub = to_unsub.first[:packet].topics
       else
+        @logger.error("The packet id is invalid, already used.") if @logger.is_a?(Logger)
         raise "Two packet unsubscribe cannot have the same id"
       end
 
@@ -668,6 +682,7 @@ module PahoMqtt
       when 2
         send_pubrec(packet.id)
       else
+        @logger.error("The packet qos value is invalid in publish.") if @logger.is_a?(Logger)
         raise "Unknow qos level for a publish packet"
       end
 
@@ -709,9 +724,8 @@ module PahoMqtt
     def handle_connack_error(return_code)
       case return_code
       when 0x01
-      # TODO => MOVE TO LOGGER
-      #        puts "Unable to connect with this version #{@mqtt_version}"
-        if @mqtt_version == "3.1.1"
+        @logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if @logger.is_a?(Logger)
+        if @mqtt_version != "3.1"
           @mqtt_version = "3.1"
           connect(@host, @port, @keep_alive)
         end
@@ -728,6 +742,7 @@ module PahoMqtt
     
     def send_packet(packet)
       @socket.write(packet.to_s)
+      @logger.info("A packet #{packet.class} have been sent.") if @logger.is_a?(Logger)
       @last_ping_req = Time.now
       MQTT_ERR_SUCCESS
     end
@@ -755,8 +770,7 @@ module PahoMqtt
 
     def send_pingreq
       packet = PahoMqtt::Packet::Pingreq.new
-      # TODO => MOVE TO LOGGER
-      #      puts "Check if the connection is still alive."
+      @logger.debug("Checking if server is still alive.") if @logger.is_a?(Logger)
       send_packet(packet)
     end
 
@@ -772,8 +786,6 @@ module PahoMqtt
         @suback_mutex.synchronize {
           @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
         }
-      else
-        raise "Protocol Violation, subscribe topics list must not be empty."
       end        
       MQTT_ERR_SUCCESS
     end
@@ -790,8 +802,6 @@ module PahoMqtt
         @unsuback_mutex.synchronize {
           @waiting_unsuback.push({:id => new_id, :packet => packet, :timestamp => Time.now})
         }
-      else
-        raise "Protocol Violation, unsubscribe topics list must not be empty."
       end
       MQTT_ERR_SUCCESS
     end
@@ -870,6 +880,7 @@ module PahoMqtt
         topic = topics.split('/')
         filter = filters.split('/')
       else
+        @logger.error("Topics and filters are not found as String while matching topics to filter.") if @logger.is_a?(Logger)
         raise "Invalid parameter type #{topics.class} and #{filters.class}"
       end
       
