@@ -2,16 +2,11 @@ require "paho-mqtt"
 require "logger"
 
 file = File.open('paho.log', "a+")
-#log = Logger.new(STDOUT)
 log = Logger.new(file)
 log.level = Logger::DEBUG
 
-#cli = PahoMqtt::Client.new
 cli = PahoMqtt::Client.new({logger: log, persistent: true, keep_alive: 7})
 
-#cli.ssl = true
-#cli.config_ssl_context("/Users/Pierre/certs/test/mykey.crt", "/Users/Pierre/certs/test/mykey.key")
-#cli.connect('test.mosquitto.org', 8883)
 cli.connect('localhost', 1883)
 
 #########################################################
@@ -72,6 +67,7 @@ sleep cli.ack_timeout
 
 cli.unsubscribe('+/tutu', "+/+")
 
-sleep 40
+puts "Waiting 10 sec for keeping alive..."
+sleep 10
 
 cli.disconnect
