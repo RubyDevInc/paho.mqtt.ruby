@@ -1,9 +1,10 @@
 $:.unshift(File.dirname(__FILE__))
 
 require 'spec_helper'
+require 'pp'
 
 describe PahoMqtt::Client do
-  context "From scrath" do
+  context "From scratch" do
     it "Initialize the client with default parameter" do
       client = PahoMqtt::Client.new
       expect(client.host).to eq("")
@@ -18,7 +19,7 @@ describe PahoMqtt::Client do
       expect(client.will_payload).to be_nil    
       expect(client.will_qos).to eq(0)
       expect(client.will_retain).to be false
-      expect(client.keep_alive).to eq(10)
+      expect(client.keep_alive).to eq(60)
       expect(client.ack_timeout).to eq(5)
       expect(client.on_connack).to be_nil
       expect(client.on_suback).to be_nil
@@ -92,24 +93,34 @@ describe PahoMqtt::Client do
   end
 
   context "With a defined host" do
-    let(:client) { PahoMqtt::Client.new(:host => 'test.mosquitto.org') }
+    let(:client) { PahoMqtt::Client.new(:host => 'localhost') }
     before(:each) do
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_DISCONNECT)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
     end
-    
+
     it "Connect with unencrypted mode" do
       client.connect(client.host, client.port, 20)
       expect(client.keep_alive).to eq(20)
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
+      client.disconnect
+    end
+
+    it "Connect with encrypted mode with Certificate Authority" do
+      client.port = 8883
+      client.config_ssl_context(cert_path('client.crt'), cert_path('client.key'), cert_path('ca.crt'))
+      client.connect(client.host, client.port)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
+      client.disconnect
     end
 
     it "Connect with encrypted mode" do
       client.port = 8883
       client.config_ssl_context(cert_path('client.crt'), cert_path('client.key'))
       client.connect(client.host, client.port)
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
+      client.disconnect
     end
-   
+
     it "Connect and verify the on_connack callback" do
       connected = false
       client.on_connack do
@@ -123,51 +134,57 @@ describe PahoMqtt::Client do
       client.ack_timeout = 2
       client.persistent = true
       client.connect(client.host, client.port, client.keep_alive, true)
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
       client.keep_alive = 0
       sleep 0.01
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_DISCONNECT)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
       client.keep_alive = 15
       sleep client.ack_timeout
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)      
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
     end
 
     it "Automaticaly disconnect after the keep alive on not persistent mode" do
       client.ack_timeout = 2
       client.connect(client.host, client.port)
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
       client.keep_alive = 0
       sleep 0.01
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_DISCONNECT)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
       sleep client.ack_timeout
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_DISCONNECT)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
     end
   end
-  
+
   context "Already connected client" do
-    let(:client) { PahoMqtt::Client.new(:host => 'test.mosquitto.org', :ack_timeout => 2) }
+    let(:client) { PahoMqtt::Client.new(:host => 'localhost', :ack_timeout => 2) }
     let(:valid_topics) { Array({"/My_all_topic/#"=> 2, "My_private_topic" => 1}) }
     let(:invalid_topics) { Array({"" => 1, "topic_invalid_qos" => 42}) }
     let(:publish_content) { Hash(:topic => "My_private_topic", :payload => "Hello World!", :qos => 1, :retain => false) }
     
     before(:each) do
       client.connect(client.host, client.port)
-      expect(client.connection_state).to eq(PahoMqtt::Client::MQTT_CS_CONNECTED)
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
+    end
+
+    after(:each) do
+      client.disconnect
     end
 
     it "Subscribe to valid topic and return success" do
-      expect(client.subscribe(valid_topics)).to eq(PahoMqtt::Client::MQTT_ERR_SUCCESS)
+      expect(client.subscribe(valid_topics)).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
     end
     
     it "Try to subscribe to nil topic and return success" do
-      expect(client.subscribe(invalid_topics[1])).to eq(PahoMqtt::Client::MQTT_ERR_SUCCESS)
+      expect(client.subscribe(invalid_topics[1])).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
     end
 
     it "Subscribe to a topic and verifiy the on_suback callback"do
       subscribed = false
       client.on_suback = lambda { subscribed = true }
       client.subscribe(valid_topics)
-      sleep client.ack_timeout
+      while !subscribed do
+        sleep 0.0001
+      end
       expect(subscribed).to be true
     end
     
@@ -178,7 +195,13 @@ describe PahoMqtt::Client do
     # end
 
     it "Unsubsribe to a valid topic" do
-      expect(client.unsubscribe(valid_topics)).to eq(PahoMqtt::Client::MQTT_ERR_SUCCESS)
+      subscribed = false
+      client.on_suback = lambda { subscribed = true }
+      client.subscribe(valid_topics)
+      while !subscribed do
+        sleep 0.0001
+      end
+      expect(client.unsubscribe(valid_topics)).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
     end
     
     # TODO: Add rescue in unsubscribe to catch the exception
@@ -187,7 +210,7 @@ describe PahoMqtt::Client do
     # end
     
     it "Publish a packet to a valid topic"do
-      expect(client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], publish_content[:qos])).to eq(PahoMqtt::Client::MQTT_ERR_SUCCESS)
+      expect(client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], publish_content[:qos])).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
     end
     
     # TODO: Add rescue in publish to catch the exception
