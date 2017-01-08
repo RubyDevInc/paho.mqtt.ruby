@@ -33,7 +33,6 @@ client = PahoMqtt::Client.new
 ### Register a callback on message event to display messages
 message_counter = 0
 client.on_message do |message|
-  
   puts "Message recieved on topic: #{message.topic}\n>>> #{message.payload}"
   message_counter += 1
 end
@@ -67,7 +66,7 @@ end
 client.publish("/paho/ruby/test", "Hello there!", false, 1)
 
 while waiting_puback do
-  sleep 0.01
+  sleep 0.001
 end
 
 ### Waiting to assert that the message is displayed by on_message callback
@@ -76,6 +75,51 @@ sleep 1
 ### Calling an explicit disconnect
 client.disconnect
 ```
+
+### Client
+#### Initialization
+The client may be initialized without paramaters or with a hash of parameters. The list of client's accessor is details in the next parts. A client id would be generated if not provided, a default port would be also set (8883 if ssl set, else 1883).
+```ruby
+client = PahoMqtt::Client.new
+#Or
+client = PahoMqtt::Client.new({host: ..., port: ..., ssl: false})
+```
+### Accessor
+The client have many accessor that configure the client depending on yours need. The accessor could be splited in three differents roles, connection setup, last will setup, time-out setup and callback setup.
+Connection setup:
+```
+* host          : The endpoint where the client would try to connect (defaut "")
+* port          : The port on the remote host where the socket would try to connect (default nil)
+* mqtt_version  : The version of MQTT protocol used to communication (default 3.1.1)
+* clean_session : If set to false, ask the message broker to try to restore the previous session (default true)
+* persistent    : Keep the client connected even after keep alive, automaticaly try to reconnect on failure (default false)
+* client_id     : The identifier of the client (default nil)
+* username      : The username if the server require authentication (default nil)
+* password      : The password of the user if authentication required (default nil)
+* ssl           : Requiring the encryption for the communication (default false)
+```
+
+Last Will:
+```
+* will_topic   : The topic where to publish the last will (default nil)
+* will_payload : The message of the last will (default "")
+* will_qos     : The qos of the last will (default 0)
+* will_retain  : The retain status of the last will
+```
+
+Time-out:
+```
+* keep_alive  : The reference timer after which the client should decide to keep the connection alive or not
+* ack_timeout : The timer after which a non-acknowledged packet is considered as a failure
+```
+
+The description of the callback accessor is detailed in the section dedicated to the callbacks. The client also have three read only attributes which provided information on the client state.
+```
+* registered_callback : The list of topics where callback have been registred which the associated callback
+* subscribed_topics   : The list of the topics where the client is currentely receiving publish.
+* connection_state    : The state of the connection between the message broker and the client
+```
+
 
 ## Development
 
