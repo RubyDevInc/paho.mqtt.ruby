@@ -5,8 +5,7 @@ client = PahoMqtt::Client.new
 
 ### Register a callback on message event to display messages
 message_counter = 0
-client.on_message do |message|
-  
+client.on_message do |message|  
   puts "Message recieved on topic: #{message.topic}\n>>> #{message.payload}"
   message_counter += 1
 end
@@ -40,7 +39,7 @@ end
 client.publish("/paho/ruby/test", "Hello there!", false, 1)
 
 while waiting_puback do
-  sleep 0.01
+  sleep 0.001
 end
 
 ### Waiting to assert that the message is displayed by on_message callback

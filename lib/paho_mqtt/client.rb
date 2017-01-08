@@ -12,6 +12,7 @@ module PahoMqtt
     attr_accessor :port
     attr_accessor :mqtt_version
     attr_accessor :clean_session
+    attr_accessor :persistent
     attr_accessor :client_id
     attr_accessor :username
     attr_accessor :password
@@ -23,10 +24,9 @@ module PahoMqtt
     attr_accessor :will_qos
     attr_accessor :will_retain
 
-    # Setting attributes:
+    # Timeout attributes:
     attr_accessor :keep_alive
     attr_accessor :ack_timeout
-    attr_accessor :persistent
 
     #Callback attributes
     attr_accessor :on_message
@@ -82,7 +82,12 @@ module PahoMqtt
       end
 
       if @port.nil?
-        @port = @ssl ? PahoMqtt::DEFAULT_SSL_PORT : PahoMqtt::DEFAULT_PORT
+        @port
+        if @ssl
+          @port = PahoMqtt::DEFAULT_SSL_PORT
+        else
+          @port = PahoMqtt::DEFAULT_PORT
+        end
       end
 
       if  @client_id.nil? || @client_id == ""
