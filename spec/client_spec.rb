@@ -1,7 +1,6 @@
 $:.unshift(File.dirname(__FILE__))
 
 require 'spec_helper'
-require 'pp'
 
 describe PahoMqtt::Client do
   context "From scratch" do
