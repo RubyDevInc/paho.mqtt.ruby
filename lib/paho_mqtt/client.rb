@@ -136,11 +136,7 @@ module PahoMqtt
       @ssl ||= true
       @ssl_context = ssl_context
       self.cert = cert_path
-      if key_path.is_a?(Array) && key_path.length == 2
-        self.send("key=", key_path[0], key_path[1])
-      else
-        self.key = key_path
-      end
+      self.key = key_path
       self.root_ca = ca_path
     end
 
@@ -437,8 +433,8 @@ module PahoMqtt
       ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
     end
 
-    def key=(key_path, passphrase=nil)
-      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path), passphrase)
+    def key=(key_path)
+      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
     end
 
     def root_ca=(ca_path)
