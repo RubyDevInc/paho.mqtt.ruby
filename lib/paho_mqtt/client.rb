@@ -128,32 +128,23 @@ module PahoMqtt
       @client_id = prefix << Array.new(lenght) { charset.sample }.join
     end
 
-    def config_ssl_context(cert_path, key_path, ca_path=nil)
-      @ssl ||= true
-      @ssl_context = ssl_context
-      self.cert = cert_path
-      self.key = key_path
-      self.root_ca = ca_path
-    end
-
     def ssl_context
       @ssl_context ||= OpenSSL::SSL::SSLContext.new
     end
 
-    def cert=(cert_path)
-      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
-    end
-
-    def key=(key_path, passphrase=nil)
-      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path), passphrase)
-    end
-
-    def root_ca=(ca_path)
-      ssl_context.ca_file = ca_path
-      unless @ca_path.nil?
-        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    def config_ssl_context(cert_path, key_path, ca_path=nil)
+      @ssl ||= true
+      @ssl_context = ssl_context
+      self.cert = cert_path
+      if key_path.is_a?(Array) && key_path.length == 2
+        self.send("key=", key_path[0], key_path[1])
+      else
+        self.key = key_path
       end
+      self.root_ca = ca_path
     end
+
+
     
     def config_will(topic, payload="", retain=false, qos=0)
       @will_topic = topic
@@ -439,6 +430,21 @@ module PahoMqtt
         end
       else
         @socket = tcp_socket
+      end
+    end
+
+    def cert=(cert_path)
+      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+    end
+
+    def key=(key_path, passphrase=nil)
+      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path), passphrase)
+    end
+
+    def root_ca=(ca_path)
+      ssl_context.ca_file = ca_path
+      unless @ca_path.nil?
+        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER
       end
     end
 
