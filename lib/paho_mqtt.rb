@@ -1,6 +1,6 @@
-require "paho.mqtt/version"
-require "paho.mqtt/paho_client"
-require "paho.mqtt/packet_manager"
+require "paho_mqtt/version"
+require "paho_mqtt/client"
+require "paho_mqtt/packet"
 
 module PahoMqtt
 
