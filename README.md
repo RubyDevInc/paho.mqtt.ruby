@@ -107,7 +107,7 @@ Last Will:
 * will_retain  : The retain status of the last will (default false)
 ```
 
-Time-out:
+Timers:
 ```
 * keep_alive  : The reference timer after which the client should decide to keep the connection alive or not
 * ack_timeout : The timer after which a non-acknowledged packet is considered as a failure
@@ -185,20 +185,11 @@ The callbacks could be define in a three different ways, as block, as Proc or as
 ```ruby
 # TODO: Add two or three callback
 ```
-A callback could be configured for every specific topics.
+A callback could be configured for every specific topics. The list of topics where a callbacks have been registered could be read at any time, threw the registered_callback variable. The following example details how to manage callbacks for specific topics.
+```ruby
+# TODO: 
+```
 
-
-## Development
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactivke prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
-
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/PahoMqttRuby. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
-
-
-## License
-
-The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
+### Message Broker, Mosquitto
+Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files. See Mosquitto message broker page for more details.
 
