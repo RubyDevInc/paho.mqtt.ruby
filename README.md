@@ -1,4 +1,4 @@
-# PahoMqtt
+# PahoMqttA
 
 The followings files describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the MQTT protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M.
 
@@ -123,18 +123,22 @@ The description of the callback accessor is detailed in the section dedicated to
 #### Unencrypted mode
 The most simple connection way is the unencrypted mode. All data would be send clearly to the message broker, also it might not be safe for sensitive data. The connection may set or override some parameters of the client, the host, the port, the keep_alive timer and the persistence mode.
 ```ruby
+### Simply connect to the message broker with default value or pre-set
 client.connect
 # Or
-client.connect("iot.eclipse.org", 1883, client.keep_alive, client.persistent)
+### Connect to the message broker with all parameter
+client.connect("iot.eclipse.org", 1883, client.keep_alive, client.persistent, client.blocking)
 ```
 
 #### Encrypted mode
 The client support the encrypt connection threw tls-ssl socket. For using this mode, the ssl flag of the client shoudl be set to 'true'.   
 ``` ruby
-client.ssl
+### Set the encryption mode to True
+client.ssl = true
+### Configure the user SSL key and the certificate
 client.config_ssl_context(certificate_path, key_path)
 client.connect("test.mosquitto.org", 8883)
-# Or if rootCA is needed
+### Or if rootCA is needed
 client.config_ssl_context(certificate_path, key_path, rootCA_path)
 client.connect("test.mosquitto.org", 8884)
 ```
@@ -143,16 +147,23 @@ client.connect("test.mosquitto.org", 8884)
 The client hold a keep_alive timer which the reference time that the connection should be hold without any activity form the message broker. The persistence flag, when set to True, enable the client to be more independent from the keep_alive timer. Just before the keep_alive run out, the client sent a ping request to tell to the message broker that the connection should be kept. The persistent mode also enable the client to automatically reconnect to the message broker after the keep_alive timer run out.
 When the client's persistence flag is set to False, it just simply disconnect when the keep_alive timer runs out.  
 
+```ruby
+### This will connect to the message broker, keep connected and automatically reconnect on failure
+client.connect('iot.eclipse.org', 1883, client.keep_alive, true, client.blocking)
+#Or
+### This only connect to the message broker, disconnect after keep_alive or on failure
+client.connect('iot.eclipse.org', 1883, client.keep_alive, false, client.blocking)
+```
+
 #### Foreground and Deamon
 The client client could be connect to the message broker using the main thread in forground or as a daemon in a seperate thread. The default mode is daemon mode, the deamon would excute in the background the read/write operation as weell as the control of the timers. If the client is connected using the main thread, all operation should be performed by the user, using the different control loops. There is four different loops which roles is details in the next par
 t.
 ```ruby
 ### This will connect to the message broker excute the mqtt_loop (socket reading/writing) in the background
-client.connect('iot.eclipse.org', 1883, client.persistence, true)
-
-
+client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, true)
+#Or
 ### This only connect to the message broker, nothing more
-client.connect('iot.eclipse.org', 1883, client.persistence, false)
+client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, false)
 ```
 
 ### Control loops
