@@ -123,7 +123,7 @@ The description of the callback accessor is detailed in the section dedicated to
 #### Unencrypted mode
 The most simple connection way is the unencrypted mode. All data would be send clearly to the message broker, also it might not be safe for sensitive data. The connection may set or override some parameters of the client, the host, the port, the keep_alive timer and the persistence mode.
 ```ruby
-### Simply connect to the message broker with default value or pre-set
+### Simply connect to the message broker with default value or pre-set value
 client.connect
 # Or
 ### Connect to the message broker with all parameter
@@ -167,15 +167,30 @@ client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, f
 ```
 
 ### Control loops
+
+The control loops should not be used in a deamon mode.
+
 #### Reading loops
 The reading loop provide access to the socket in a reading mode. Periodically, the sockets would be inspect to try to find a mqtt packet. The read loop accept a parameter which is number of loop's turn. The default value is five turn.  
 The default value is define in the PahoMqtt module as the constant PahoMqtt::MAX_READ, another that could be modify is the socket inspection period. The referring constant is SELECT_TIMEOUT (PahoMqtt::SELECT_TIMEOUT) and its default value is 0.  
+```ruby
+### Trying to read 'max_packet' packets from the client socket
+client.loop_read(max_packet)
+```
 
 #### Writing loop
 The writing loop would send the packets which have been previously stack by MQTT operations. This loop also accept a parameter whih is the maximum packet to write as MAX_WRITING (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
+```ruby
+### Writing 'max_packet' packets to the client socket
+client.loop_write(max_packet)
+```
 
 #### Miscellaneous loop
 The misc loop perform different control operations on the packets state and the connection state. The loop parse the different queue of packet that are waiting for an acknolegement. If the ack_timeout of a packet had run out, the packet is resent. The size of the different waiting queue is defined as module constants. This loop also assert that the connection is still available by checking the keep_alive timers.
+```ruby
+### Perfom control operations on packets queues and connection
+client.loop_misc
+```
 
 ### Subscription
 In order to read the message sent on a topic by a the message broker, the client should subscribe to this topic. The client enable to subscribe to several topics in the same request. The subscription could also be done by using wildcard details in the MQTT specifications. Each topic is subscribe with a maximum qos level, only message with a qos level lower or equal to this value would be published to the client. The subscribe command accept one or several pair composed by the topic (or wildcard) and the maximum qos level.  
