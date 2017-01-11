@@ -97,11 +97,14 @@ describe PahoMqtt::Client do
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
     end
 
+    after(:each) do
+      client.disconnect
+    end
+
     it "Connect with unencrypted mode" do
       client.connect(client.host, client.port, 20)
       expect(client.keep_alive).to eq(20)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-      client.disconnect
     end
 
     it "Connect with encrypted mode with Certificate Authority" do
@@ -109,7 +112,6 @@ describe PahoMqtt::Client do
       client.config_ssl_context(cert_path('client.crt'), cert_path('client.key'), cert_path('ca.crt'))
       client.connect(client.host, client.port)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-      client.disconnect
     end
 
     it "Connect with encrypted mode" do
@@ -117,7 +119,6 @@ describe PahoMqtt::Client do
       client.config_ssl_context(cert_path('client.crt'), cert_path('client.key'))
       client.connect(client.host, client.port)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-      client.disconnect
     end
 
     it "Connect and verify the on_connack callback" do
@@ -135,8 +136,8 @@ describe PahoMqtt::Client do
       client.connect(client.host, client.port, client.keep_alive, true)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
       client.keep_alive = 0
-      sleep 0.1
-      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
+      sleep 0.001
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_NEW)
       client.keep_alive = 15
       sleep client.ack_timeout
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
@@ -147,8 +148,9 @@ describe PahoMqtt::Client do
       client.connect(client.host, client.port)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
       client.keep_alive = 0
-      sleep 0.1
+      sleep 0.001
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
+      client.keep_alive = 15
       sleep client.ack_timeout
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
     end
