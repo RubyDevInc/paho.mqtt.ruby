@@ -1,6 +1,6 @@
-# PahoMqttA
+# PahoMqtt
 
-The followings files describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the MQTT protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M.
+The following file describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the MQTT protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M.
 
 
 ## Installation
@@ -75,23 +75,24 @@ sleep 1
 client.disconnect
 ```
 
-### Client
-#### Initialization
+## Client
+### Initialization
 The client may be initialized without paramaters or with a hash of parameters. The list of client's accessor is details in the next parts. A client id would be generated if not provided, a default port would be also set (8883 if ssl set, else 1883).
 ```ruby
 client = PahoMqtt::Client.new
-#Or
+# Or
 client = PahoMqtt::Client.new({host: "iot.eclispe.org", port: 1883, ssl: false})
 ```
-#### Client's parameters
-The client have many accessors which help to configure the client depending on yours need. The different accessors could be splited in three roles, connection setup, last will setup, time-out setup and callback setup.
+
+### Client's parameters
+The client has many accessors which help to configure the client depending on user's need. The different accessors could be splited in four roles, connection setup, last will setup, time-out setup and callback setup.
 Connection setup:
 ```
 * host          : The endpoint where the client would try to connect (defaut "")
 * port          : The port on the remote host where the socket would try to connect (default nil)
 * mqtt_version  : The version of MQTT protocol used to communication (default 3.1.1)
 * clean_session : If set to false, ask the message broker to try to restore the previous session (default true)
-* persistent    : Keep the client connected even after keep alive, automaticaly try to reconnect on failure (default false)
+* persistent    : Keep the client connected even after keep alive timer run out, automatically try to reconnect on failure (default false)
 * client_id     : The identifier of the client (default nil)
 * username      : The username if the server require authentication (default nil)
 * password      : The password of the user if authentication required (default nil)
@@ -112,7 +113,7 @@ Timers:
 * ack_timeout : The timer after which a non-acknowledged packet is considered as a failure
 ```
 
-The description of the callback accessor is detailed in the section dedicated to the callbacks. The client also have three read only attributes which provided information on the client state.
+The description of the callback accessor is detailed in the section dedicated to the callbacks. The client also have three read only attributes which provide information on the client state.
 ```
 * registered_callback : The list of topics where callback have been registred which the associated callback
 * subscribed_topics   : The list of the topics where the client is currentely receiving publish.
@@ -121,7 +122,7 @@ The description of the callback accessor is detailed in the section dedicated to
 
 ### Connection configuration
 #### Unencrypted mode
-The most simple connection way is the unencrypted mode. All data would be send clearly to the message broker, also it might not be safe for sensitive data. The connection may set or override some parameters of the client, the host, the port, the keep_alive timer and the persistence mode.
+The most simple connection way is the unencrypted mode. All data would be send clearly to the message broker, also it might not be safe for sensitive data. The connect method may set up or override some parameters of the client, the host, the port, the keep_alive timer, the persistence mode and blocking mode.
 ```ruby
 ### Simply connect to the message broker with default value or pre-set value
 client.connect
@@ -131,7 +132,7 @@ client.connect("iot.eclipse.org", 1883, client.keep_alive, client.persistent, cl
 ```
 
 #### Encrypted mode
-The client support the encrypt connection threw tls-ssl socket. For using this mode, the ssl flag of the client shoudl be set to 'true'.   
+The client supports the encrypted connection threw tls-ssl socket. In order to use encrypted mode, the ssl flag of the client should be set to True.   
 ``` ruby
 ### Set the encryption mode to True
 client.ssl = true
@@ -144,8 +145,10 @@ client.connect("test.mosquitto.org", 8884)
 ```
 
 #### Persistence
-The client hold a keep_alive timer which the reference time that the connection should be hold without any activity form the message broker. The persistence flag, when set to True, enable the client to be more independent from the keep_alive timer. Just before the keep_alive run out, the client sent a ping request to tell to the message broker that the connection should be kept. The persistent mode also enable the client to automatically reconnect to the message broker after the keep_alive timer run out.
-When the client's persistence flag is set to False, it just simply disconnect when the keep_alive timer runs out.  
+The client holds a keep_alive timer is the reference time that the connection should be hold. The timer is reset every time a new valid packet is received from the message broker. The persistence flag, when set to True, enables the client to be more independent from the keep_alive timer. Just before the keep_alive run out, the client send a ping request to tell to the message broker that the connection should be kept. The persistent mode also enables the client to automatically reconnect to the message broker after an unexpected failure.
+
+
+When the client's persistence flag is set to False, it just simply disconnects when the keep_alive timer runs out.  
 
 ```ruby
 ### This will connect to the message broker, keep connected and automatically reconnect on failure
@@ -156,10 +159,10 @@ client.connect('iot.eclipse.org', 1883, client.keep_alive, false, client.blockin
 ```
 
 #### Foreground and Deamon
-The client client could be connect to the message broker using the main thread in forground or as a daemon in a seperate thread. The default mode is daemon mode, the deamon would excute in the background the read/write operation as weell as the control of the timers. If the client is connected using the main thread, all operation should be performed by the user, using the different control loops. There is four different loops which roles is details in the next par
-t.
+The client could be connected to the message broker using the main thread in foreground or as a daemon in a seperate thread. The default mode is daemon mode, the deamon would run in the background the read/write operation as well as the control of the timers. If the client is connected using the main thread, all control operations are left to the user, using the different control loops. There are four different loop roles is detailed in the next part.
+
 ```ruby
-### This will connect to the message broker excute the mqtt_loop (socket reading/writing) in the background
+### Connect to the message broker executing the mqtt_loop (socket reading/writing) in the background
 client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, true)
 #Or
 ### This only connect to the message broker, nothing more
@@ -170,39 +173,39 @@ client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, f
 
 The control loops should not be used in a deamon mode.
 
-#### Reading loops
-The reading loop provide access to the socket in a reading mode. Periodically, the sockets would be inspect to try to find a mqtt packet. The read loop accept a parameter which is number of loop's turn. The default value is five turn.  
-The default value is define in the PahoMqtt module as the constant PahoMqtt::MAX_READ, another that could be modify is the socket inspection period. The referring constant is SELECT_TIMEOUT (PahoMqtt::SELECT_TIMEOUT) and its default value is 0.  
+#### Reading loop
+The reading loop provides access to the socket in a reading mode. Periodically, the socket would be inspected to try to find a mqtt packet. The read loop accepts a parameter which  is the number of loop's turn. The default value is five turns.  
+The default value is defined in the PahoMqtt module as the constant PahoMqtt::MAX_READ, another module constant could be modified to control the socket inspection period. The referring constant is SELECT_TIMEOUT (PahoMqtt::SELECT_TIMEOUT) and its default value is 0.  
 ```ruby
 ### Trying to read 'max_packet' packets from the client socket
 client.loop_read(max_packet)
 ```
 
 #### Writing loop
-The writing loop would send the packets which have been previously stack by MQTT operations. This loop also accept a parameter whih is the maximum packet to write as MAX_WRITING (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
+The writing loop send the packets which have previously been stacked by MQTT operations. This loop also accepts a parameter whih is the maximum packet number that coul be write as MAX_WRITING (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
 ```ruby
 ### Writing 'max_packet' packets to the client socket
 client.loop_write(max_packet)
 ```
 
 #### Miscellaneous loop
-The misc loop perform different control operations on the packets state and the connection state. The loop parse the different queue of packet that are waiting for an acknolegement. If the ack_timeout of a packet had run out, the packet is resent. The size of the different waiting queue is defined as module constants. This loop also assert that the connection is still available by checking the keep_alive timers.
+The misc loop perform different control operations, modifying the packets states and the connection state. The misc loop parses the different queue of packet that are waiting for an acknolegement. If the ack_timeout of a packet had run out, the packet is resent. The size of the different waiting queues is defined as module constants. This loop also asserts that the connection is still available by checking the keep_alive timer.
 ```ruby
 ### Perfom control operations on packets queues and connection
 client.loop_misc
 ```
 
 ### Subscription
-In order to read the message sent on a topic by a the message broker, the client should subscribe to this topic. The client enable to subscribe to several topics in the same request. The subscription could also be done by using wildcard details in the MQTT specifications. Each topic is subscribe with a maximum qos level, only message with a qos level lower or equal to this value would be published to the client. The subscribe command accept one or several pair composed by the topic (or wildcard) and the maximum qos level.  
+In order to read a message sent on a topic, the client should subscribe to this topic. The client enables to subscribe to several topics in the same subscribe request. The subscription could also be done by using a wildcard, see more details on MQTT specifications. Each topic is subscribed with a maximum qos level, only message with a qos level lower or equal to this value would be forwarded to the client. The subscribe command accepts one or several pair, each pair is composed by the topic (or wildcard) and the maximum qos level.  
 ```ruby
 ### Subscribe to two topics with maximum qos associated
 client.subscribe(["/foo/bar", 1], ["/foo/foo/", 2])
 ```
-  
-The subscription is persistent, in case of a unexpected disconnect, the current subscription state is saved and new subscribed request is sent to message broker.
+
+The subscription is persistent, in case of a unexpected disconnecting, the current subscription state is saved and a new subscribe request is sent to the message broker.
 
 ### Publishing
-User data could be sent to the message broker with the publish operation. A publish operation require a topic, and payload (user data), two other parameter may be configured, retain and qos. The retain flag tell to the message broker to keep the current publish packet, see the MQTT protocol specifications for more details. The qos enable different level of control on the publish package. The client support the three level of qos (0, 1 and 2), see the MQTT protocol specifications for qos level details. The default retain value is False and the qos level is 0.  
+User data could be sent to the message broker with the publish operation. A publish operation requires a topic, and payload (user data), two other parameters may be configured, retain and qos. The retain flag tell to the message broker to keep the current publish packet, see the MQTT protocol specifications for more details about retain. The qos enable different levels of control on the transmission of publish package. The PahoMqtt client supports the three levels of qos (0, 1 and 2), see the MQTT protocol specifications for qos level details. The default retain value is False and the qos level is 0.
 ```ruby
 ### Publish to the topics "/foo/bar", with qos = 1 and no retain
 client.publish("/foo/bar", "Hello Wourld!", false, 1)
@@ -210,10 +213,10 @@ client.publish("/foo/bar", "Hello Wourld!", false, 1)
 
 ### Handlers and Callbacks
 #### Handlers
-When a packet is recieved and inspected, a appropriate handler is called. The handlers perform different control operation such as update the connection state, update the subscribed topics, and send publish control packets. Each packet has a specific handler. Before returning the handler execute a callback if the user configured one for this type of packet. The handler of pingreq and pingresp packets does not perform callbacks, and the publish handler may execute sequencially two callbacks. One for the reception of the generic publish packet and another if the user has configured a callback for the topic where the publish have been received.  
+When a packet is received and inspected, an appropriate handler is called. The handler performs different control operation such as update the connection state, update the subscribed topics, and send publish control packets. Each packet has a specific handler, except the pingreq/pingresp packet. Before returning the handler executes a callback if the user has configured one for this type of packet. The publish handler may execute sequencially two callbacks. One callback for the reception of a generic publish packet and another one if the user has configured a callback for the topic where the publish packet has been received.  
 
 #### Callbacks
-The callbacks could be defined in a three different ways, as block, as Proc or as Lambda. The callback have access to the packet that had trigger it.  
+The callbacks could be defined in a three different ways, as block, as Proc or as Lambda. The callback has access to the packet which triggered it.  
 ```ruby
 ### Register a callback trigger on the reception of a CONNACK packet
 client.on_connack = proc { puts "Successfully Connected" }
