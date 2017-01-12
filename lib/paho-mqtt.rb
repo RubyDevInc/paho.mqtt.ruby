@@ -13,6 +13,7 @@ module PahoMqtt
   RECONNECT_RETRY_TEMPO = 5
 
   # MAX size of queue
+  MAX_READ = 10
   MAX_PUBACK = 20
   MAX_PUBREC = 20
   MAX_PUBREL = 20
@@ -23,7 +24,6 @@ module PahoMqtt
   MQTT_CS_NEW = 0
   MQTT_CS_CONNECTED = 1
   MQTT_CS_DISCONNECT = 2
-  MQTT_CS_CONNECT_ASYNC = 3
   
   # Error values
   MQTT_ERR_SUCCESS = 0
