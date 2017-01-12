@@ -181,7 +181,7 @@ describe PahoMqtt::Client do
 
     it "Subscribe to a topic and verifiy the on_suback callback"do
       subscribed = false
-      client.on_suback = lambda { subscribed = true }
+      client.on_suback = lambda { |pck| subscribed = true }
       client.subscribe(valid_topics)
       while !subscribed do
         sleep 0.0001
@@ -197,7 +197,7 @@ describe PahoMqtt::Client do
 
     it "Unsubsribe to a valid topic" do
       subscribed = false
-      client.on_suback = lambda { subscribed = true }
+      client.on_suback = lambda { |pck| subscribed = true }
       client.subscribe(valid_topics)
       while !subscribed do
         sleep 0.0001
@@ -284,7 +284,7 @@ describe PahoMqtt::Client do
         pubrec = true
       end
       client.on_pubrel = proc { pubrel = true }
-      client.on_pubcomp = lambda { pubcomp = true }
+      client.on_pubcomp = lambda { |pck| pubcomp = true }
       expect(pubrec).to be false
       expect(pubrel).to be false
       expect(pubcomp).to be false
