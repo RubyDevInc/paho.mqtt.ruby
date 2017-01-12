@@ -203,7 +203,6 @@ module PahoMqtt
       check_ack_alive(@waiting_unsuback, @unsuback_mutex, @waiting_unsuback.length)
     end
 
-
     def reconnect(retry_time=RECONNECT_RETRY_TIME, retry_tempo=RECONNECT_RETRY_TEMPO)
       @reconnect_thread = Thread.new do
         retry_time.times do
@@ -293,7 +292,7 @@ module PahoMqtt
     def ping_host
       send_pingreq
     end
-    
+
     def add_topic_callback(topic, callback=nil, &block)
       if topic.nil?
         @logger.error("The topics where the callback is trying to be registered have been found nil.") if @logger.is_a?(Logger)
@@ -593,7 +592,7 @@ module PahoMqtt
           send_packet(m)
         end
       }
-      @on_connack.call unless @on_connack.nil?
+      @on_connack.call(packet) unless @on_connack.nil?
     end
 
     def handle_pingresp
@@ -625,7 +624,7 @@ module PahoMqtt
       @subscribed_mutex.synchronize {
         @subscribed_topics.concat(adjust_qos)
       }
-      @on_suback.call unless @on_suback.nil?
+      @on_suback.call(packet) unless @on_suback.nil?
     end
 
     def handle_unsuback(packet)
@@ -646,7 +645,7 @@ module PahoMqtt
           @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter) }
         end
       }
-      @on_unsuback.call unless @on_unsuback.nil?
+      @on_unsuback.call(packet) unless @on_unsuback.nil?
     end
 
     def handle_publish(packet)
@@ -662,14 +661,14 @@ module PahoMqtt
       end
 
       @on_message.call(packet) unless @on_message.nil?
-      @registered_callback.assoc(packet.topic).last.call if @registered_callback.any? { |pair| pair.first == packet.topic}
+      @registered_callback.assoc(packet.topic).last.call(packet) if @registered_callback.any? { |pair| pair.first == packet.topic}
     end
 
     def handle_puback(packet)
       @puback_mutex.synchronize{
         @waiting_puback.delete_if { |pck| pck[:id] == packet.id }
       }
-      @on_puback.call unless @on_puback.nil?
+      @on_puback.call(packet) unless @on_puback.nil?
     end
 
     def handle_pubrec(packet)
@@ -677,7 +676,7 @@ module PahoMqtt
         @waiting_pubrec.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubrel(packet.id)
-      @on_pubrec.call unless @on_pubrec.nil?
+      @on_pubrec.call(packet) unless @on_pubrec.nil?
     end
 
     def handle_pubrel(packet)
@@ -685,14 +684,14 @@ module PahoMqtt
         @waiting_pubrel.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubcomp(packet.id)
-      @on_pubrel.call unless @on_pubrel.nil?
+      @on_pubrel.call(packet) unless @on_pubrel.nil?
     end
 
     def handle_pubcomp(packet)
       @pubcomp_mutex.synchronize {
         @waiting_pubcomp.delete_if { |pck| pck[:id] == packet.id }
       }
-      @on_pubcomp.call unless @on_pubcomp.nil?
+      @on_pubcomp.call(packet) unless @on_pubcomp.nil?
     end
     
     def handle_connack_error(return_code)
