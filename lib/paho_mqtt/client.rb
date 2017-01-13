@@ -12,6 +12,7 @@ module PahoMqtt
     attr_accessor :port
     attr_accessor :mqtt_version
     attr_accessor :clean_session
+    attr_accessor :persistent
     attr_accessor :client_id
     attr_accessor :username
     attr_accessor :password
@@ -23,10 +24,9 @@ module PahoMqtt
     attr_accessor :will_qos
     attr_accessor :will_retain
 
-    # Setting attributes:
+    # Timeout attributes:
     attr_accessor :keep_alive
     attr_accessor :ack_timeout
-    attr_accessor :persistent
 
     #Callback attributes
     attr_accessor :on_message
@@ -82,7 +82,12 @@ module PahoMqtt
       end
 
       if @port.nil?
-        @port = @ssl ? PahoMqtt::DEFAULT_SSL_PORT : PahoMqtt::DEFAULT_PORT
+        @port
+        if @ssl
+          @port = PahoMqtt::DEFAULT_SSL_PORT
+        else
+          @port = PahoMqtt::DEFAULT_PORT
+        end
       end
 
       if  @client_id.nil? || @client_id == ""
@@ -92,6 +97,7 @@ module PahoMqtt
       @last_ping_req = Time.now
       @last_ping_resp = Time.now
       @last_packet_id = 0
+      @blocking = false
       @socket = nil
       @ssl_context = nil
       @writing_mutex = Mutex.new
@@ -123,31 +129,16 @@ module PahoMqtt
       @client_id = prefix << Array.new(lenght) { charset.sample }.join
     end
 
+    def ssl_context
+      @ssl_context ||= OpenSSL::SSL::SSLContext.new
+    end
+
     def config_ssl_context(cert_path, key_path, ca_path=nil)
       @ssl ||= true
       @ssl_context = ssl_context
       self.cert = cert_path
       self.key = key_path
       self.root_ca = ca_path
-    end
-
-    def ssl_context
-      @ssl_context ||= OpenSSL::SSL::SSLContext.new
-    end
-
-    def cert=(cert_path)
-      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
-    end
-
-    def key=(key_path, passphrase=nil)
-      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path), passphrase)
-    end
-
-    def root_ca=(ca_path)
-      ssl_context.ca_file = ca_path
-      unless @ca_path.nil?
-        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      end
     end
     
     def config_will(topic, payload="", retain=false, qos=0)
@@ -157,26 +148,28 @@ module PahoMqtt
       @will_qos = qos
     end
 
-    def connect(host=@host, port=@port, keep_alive=@keep_alive, persistent=@persistent)
+    def connect(host=@host, port=@port, keep_alive=@keep_alive, persistent=@persistent, blocking=@blocking)
       @persistent = persistent
-      @connection_state_mutex.synchronize {
-        @connection_state = MQTT_CS_NEW
-      }
-      connect_async(host, port, keep_alive)
-    end
-
-    def connect_async(host, port=1883, keep_alive)
+      @blocking = blocking
       @host = host
       @port = port.to_i
       @keep_alive = keep_alive
-
       @connection_state_mutex.synchronize {
-        @connection_state = MQTT_CS_CONNECT_ASYNC
+        @connection_state = MQTT_CS_NEW
       }
       setup_connection
+      connect_async(host, port, keep_alive) unless @blocking
     end
 
-    
+    def connect_async(host, port=1883, keep_alive)
+      @mqtt_thread = Thread.new do
+        @reconnect_thread.kill unless @reconnect_thread.nil? || !@reconnect_thread.alive?
+        while @connection_state == MQTT_CS_CONNECTED do
+          mqtt_loop
+        end
+      end
+    end
+
     def loop_write(max_packet=MAX_WRITING)
       @writing_mutex.synchronize {
         cnt = 0
@@ -187,12 +180,12 @@ module PahoMqtt
       }
     end
 
-    def loop_read(max_packet=5)
+    def loop_read(max_packet=MAX_READ)
       max_packet.times do
         receive_packet
       end
     end
-    
+
     def mqtt_loop
       loop_read
       loop_write
@@ -210,12 +203,11 @@ module PahoMqtt
       check_ack_alive(@waiting_unsuback, @unsuback_mutex, @waiting_unsuback.length)
     end
 
-
     def reconnect(retry_time=RECONNECT_RETRY_TIME, retry_tempo=RECONNECT_RETRY_TEMPO)
       @reconnect_thread = Thread.new do
         retry_time.times do
           @logger.debug("New reconnect atempt...") if @logger.is_a?(Logger)
-          setup_connection
+          connect
           if @connection_state == MQTT_CS_CONNECTED
             break
           else
@@ -268,7 +260,7 @@ module PahoMqtt
       }
       MQTT_ERR_SUCCESS
     end
-    
+
     def publish(topic, payload="", retain=false, qos=0)
       if topic == "" || !topic.is_a?(String)
         @logger.error("Publish topics is invalid, not a string or empty.") if @logger.is_a?(Logger)
@@ -300,7 +292,7 @@ module PahoMqtt
     def ping_host
       send_pingreq
     end
-    
+
     def add_topic_callback(topic, callback=nil, &block)
       if topic.nil?
         @logger.error("The topics where the callback is trying to be registered have been found nil.") if @logger.is_a?(Logger)
@@ -437,6 +429,21 @@ module PahoMqtt
       end
     end
 
+    def cert=(cert_path)
+      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+    end
+
+    def key=(key_path)
+      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
+    end
+
+    def root_ca=(ca_path)
+      ssl_context.ca_file = ca_path
+      unless @ca_path.nil?
+        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      end
+    end
+
     def setup_connection
       @mqtt_thread.kill unless @mqtt_thread.nil? 
       if @host.nil? || @host == ""
@@ -452,37 +459,31 @@ module PahoMqtt
        @socket.close unless @socket.nil?
        @socket = nil
 
-      @last_ping_req = Time.now
-      @last_ping_resp = Time.now
+       @last_ping_req = Time.now
+       @last_ping_resp = Time.now
 
-      @logger.debug("Atempt to connect to host: #{@host}") if @logger.is_a?(Logger)
-      config_socket
+       @logger.debug("Atempt to connect to host: #{@host}") if @logger.is_a?(Logger)
+       config_socket
 
-      unless @socket.nil?
-        send_connect
-        # Waiting a Connack packet for "ack_timeout" second from the remote
-        connect_timeout = Time.now + @ack_timeout
-        while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
-          receive_packet
-          sleep 0.0001
-        end
-      end
+       unless @socket.nil?
+         send_connect
 
-      if @connection_state != MQTT_CS_CONNECTED
-        @logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}, socket is \"#{@socket}\".") if @logger.is_a?(Logger)
-        
-        unless Thread.current == @reconnect_thread
-          raise Exception.new("Connection failed. Check log for more details.")
-        end
-      else
-        config_subscription
-        @mqtt_thread = Thread.new do
-          @reconnect_thread.kill unless @reconnect_thread.nil? || !@reconnect_thread.alive?
-          while @connection_state == MQTT_CS_CONNECTED do
-            mqtt_loop
-          end
-        end
-      end
+         # Waiting a Connack packet for "ack_timeout" second from the remote
+         connect_timeout = Time.now + @ack_timeout
+         while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
+           receive_packet
+           sleep 0.0001
+         end
+       end
+
+       if @connection_state != MQTT_CS_CONNECTED
+         @logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}, socket is \"#{@socket}\".") if @logger.is_a?(Logger)
+         unless Thread.current == @reconnect_thread
+           raise Exception.new("Connection failed. Check log for more details.")
+         end
+       else
+         config_subscription if Thread.current == @reconnect_thread
+       end
     end
 
     def check_keep_alive
@@ -497,7 +498,7 @@ module PahoMqtt
 
         timeout_resp = @last_ping_resp + (@keep_alive * 1.1).ceil
         if timeout_resp <= now
-          @logger.debug("No activity over timeout, trying to reconnect to #{@host}") if @logger.is_a?(Logger)
+          @logger.debug("No activity period over timeout, disconnecting from #{@host}") if @logger.is_a?(Logger)
           disconnect(false)
           reconnect if @persistent
         end
@@ -525,7 +526,7 @@ module PahoMqtt
       begin
         result = IO.select([@socket], [], [], SELECT_TIMEOUT) unless @socket.nil?
         unless result.nil?
-          packet = PahoMqtt::Packet.read(@socket)
+          packet = PahoMqtt::Packet::Base.read(@socket)
           unless packet.nil?
             handle_packet packet
             @last_ping_resp = Time.now
@@ -591,7 +592,7 @@ module PahoMqtt
           send_packet(m)
         end
       }
-      @on_connack.call unless @on_connack.nil?
+      @on_connack.call(packet) unless @on_connack.nil?
     end
 
     def handle_pingresp
@@ -623,7 +624,7 @@ module PahoMqtt
       @subscribed_mutex.synchronize {
         @subscribed_topics.concat(adjust_qos)
       }
-      @on_suback.call unless @on_suback.nil?
+      @on_suback.call(packet) unless @on_suback.nil?
     end
 
     def handle_unsuback(packet)
@@ -644,7 +645,7 @@ module PahoMqtt
           @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter) }
         end
       }
-      @on_unsuback.call unless @on_unsuback.nil?
+      @on_unsuback.call(packet) unless @on_unsuback.nil?
     end
 
     def handle_publish(packet)
@@ -660,14 +661,14 @@ module PahoMqtt
       end
 
       @on_message.call(packet) unless @on_message.nil?
-      @registered_callback.assoc(packet.topic).last.call if @registered_callback.any? { |pair| pair.first == packet.topic}
+      @registered_callback.assoc(packet.topic).last.call(packet) if @registered_callback.any? { |pair| pair.first == packet.topic}
     end
 
     def handle_puback(packet)
       @puback_mutex.synchronize{
         @waiting_puback.delete_if { |pck| pck[:id] == packet.id }
       }
-      @on_puback.call unless @on_puback.nil?
+      @on_puback.call(packet) unless @on_puback.nil?
     end
 
     def handle_pubrec(packet)
@@ -675,7 +676,7 @@ module PahoMqtt
         @waiting_pubrec.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubrel(packet.id)
-      @on_pubrec.call unless @on_pubrec.nil?
+      @on_pubrec.call(packet) unless @on_pubrec.nil?
     end
 
     def handle_pubrel(packet)
@@ -683,14 +684,14 @@ module PahoMqtt
         @waiting_pubrel.delete_if { |pck| pck[:id] == packet.id }
       }
       send_pubcomp(packet.id)
-      @on_pubrel.call unless @on_pubrel.nil?
+      @on_pubrel.call(packet) unless @on_pubrel.nil?
     end
 
     def handle_pubcomp(packet)
       @pubcomp_mutex.synchronize {
         @waiting_pubcomp.delete_if { |pck| pck[:id] == packet.id }
       }
-      @on_pubcomp.call unless @on_pubcomp.nil?
+      @on_pubcomp.call(packet) unless @on_pubcomp.nil?
     end
     
     def handle_connack_error(return_code)
@@ -717,10 +718,15 @@ module PahoMqtt
     end
     
     def send_packet(packet)
-      @socket.write(packet.to_s)
-      @logger.info("A packet #{packet.class} have been sent.") if @logger.is_a?(Logger)
-      @last_ping_req = Time.now
-      MQTT_ERR_SUCCESS
+      unless @socket.nil? || @socket.closed?
+        @socket.write(packet.to_s)
+        @logger.info("A packet #{packet.class} have been sent.") if @logger.is_a?(Logger)
+        @last_ping_req = Time.now
+        MQTT_ERR_SUCCESS
+      else
+        @logger.error("Trying to right a packet on a nil socket.") if @logger.is_a?(Logger)
+        MQTT_ERR_FAIL
+      end
     end
     
     
