@@ -1,6 +1,6 @@
 # PahoMqtt
 
-The following file describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the [MQTT](http://mqtt.org/) protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M.
+The following file describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the [MQTT](http://mqtt.org/) protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M. A Mqtt client can connect to a message broker in order to publish and received data contained in short messages. The message are exchanged on topics where the client have to subscribe for receiving message. This gem implement the Mqtt protocol on a client side.
 
 ## Contents
 * [Installation](#installation)
