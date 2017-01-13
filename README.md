@@ -1,9 +1,31 @@
 # PahoMqtt
 
-The following file describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the MQTT protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M.
+The following file describes the Paho Mqtt client API for the ruby programming language. It enable applications to connect to an MQTT message broker threw the [MQTT](http://mqtt.org/) protocol (versions 3.1.1). MQTT is a lightweight protocol designed for IoT/M2M.
 
-
-## Installation
+## Contents
+* [Installation](#installation)
+* [Usage](#usage)
+  * [Getting started](#getting-started)
+* [Client](#client)
+  * [Initialization](#initialization)
+  * [Client's parameters](#clients\'s-parameter)
+  * [Connection configuration](#connection-configuration)
+    * [Unencrypted mode](#unencrypted-mode)
+    * [Encrypted mode](#encrypted-mode)
+    * [Persistence](#persistence)
+    * [Foreground and Deamon](#foreground-and-deamon)
+  * [Control loops](#control-loops)
+    * [Reading loop](#reading-loop)
+    * [Writing loop](#writing-loop)
+    * [Miscellaneous loop](#miscellaneous-loop)
+  * [Subscription](#subscription)
+  * [Publishing](#publishing)
+  * [Handlers and Callbacks](#handlers-and-callbacks)
+    * [Handlers](#handlers)
+    * [Callbacks](#callbacks)
+  * Message Broker, Mosquitto
+  
+ ## Installation
 
 Add this line to your application's Gemfile:
 
@@ -182,7 +204,7 @@ client.loop_read(max_packet)
 ```
 
 #### Writing loop
-The writing loop send the packets which have previously been stacked by MQTT operations. This loop also accepts a parameter whih is the maximum packet number that coul be write as MAX_WRITING (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
+The writing loop send the packets which have previously been stacked by MQTT operations. This loop also accepts a parameter which is the maximum packets number that could be write as the MAX_WRITING constant (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
 ```ruby
 ### Writing 'max_packet' packets to the client socket
 client.loop_write(max_packet)
@@ -196,7 +218,7 @@ client.loop_misc
 ```
 
 ### Subscription
-In order to read a message sent on a topic, the client should subscribe to this topic. The client enables to subscribe to several topics in the same subscribe request. The subscription could also be done by using a wildcard, see more details on MQTT specifications. Each topic is subscribed with a maximum qos level, only message with a qos level lower or equal to this value would be forwarded to the client. The subscribe command accepts one or several pair, each pair is composed by the topic (or wildcard) and the maximum qos level.  
+In order to read a message sent on a topic, the client should subscribe to this topic. The client enables to subscribe to several topics in the same subscribe request. The subscription could also be done by using a wildcard, see more details on [MQTT protocol specifications](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html). Each topic is subscribed with a maximum qos level, only message with a qos level lower or equal to this value would be forwarded to the client. The subscribe command accepts one or several pair, each pair is composed by the topic (or wildcard) and the maximum qos level.  
 ```ruby
 ### Subscribe to two topics with maximum qos associated
 client.subscribe(["/foo/bar", 1], ["/foo/foo/", 2])
@@ -205,7 +227,7 @@ client.subscribe(["/foo/bar", 1], ["/foo/foo/", 2])
 The subscription is persistent, in case of a unexpected disconnecting, the current subscription state is saved and a new subscribe request is sent to the message broker.
 
 ### Publishing
-User data could be sent to the message broker with the publish operation. A publish operation requires a topic, and payload (user data), two other parameters may be configured, retain and qos. The retain flag tell to the message broker to keep the current publish packet, see the MQTT protocol specifications for more details about retain. The qos enable different levels of control on the transmission of publish package. The PahoMqtt client supports the three levels of qos (0, 1 and 2), see the MQTT protocol specifications for qos level details. The default retain value is False and the qos level is 0.
+User data could be sent to the message broker with the publish operation. A publish operation requires a topic, and payload (user data), two other parameters may be configured, retain and qos. The retain flag tell to the message broker to keep the current publish packet, see the [MQTT protocol specifications](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html) for more details about retain. The qos enable different levels of control on the transmission of publish package. The PahoMqtt client supports the three levels of qos (0, 1 and 2), see the [MQTT protocol specifications](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html) for qos level details. The default retain value is False and the qos level is 0.
 ```ruby
 ### Publish to the topics "/foo/bar", with qos = 1 and no retain
 client.publish("/foo/bar", "Hello Wourld!", false, 1)
@@ -242,5 +264,5 @@ client.remove_topic_callback("/foo/bar")
 ```
 
 ### Message Broker, Mosquitto
-Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files. See Mosquitto message broker page for more details.
+Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files. See [Mosquitto message broker page](https://mosquitto.org/) for more details.
 
