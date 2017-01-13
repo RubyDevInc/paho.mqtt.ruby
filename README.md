@@ -111,7 +111,7 @@ The client has many accessors which help to configure the client depending on us
 Connection setup:
 ```
 * host          : The endpoint where the client would try to connect (defaut "")
-* port          : The port on the remote host where the socket would try to connect (default nil)
+* port          : The port on the remote host where the socket would try to connect (default 1883)
 * mqtt_version  : The version of MQTT protocol used to communication (default 3.1.1)
 * clean_session : If set to false, ask the message broker to try to restore the previous session (default true)
 * persistent    : Keep the client connected even after keep alive timer run out, automatically try to reconnect on failure (default false)
