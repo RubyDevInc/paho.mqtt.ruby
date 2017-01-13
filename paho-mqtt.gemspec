@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = %q{A simple mqtt client gem}
   spec.description   = %q{A simple mqtt client gem}
-  spec.homepage      = "http://ruby-dev.jp"
+  spec.homepage      = "https://github.com/RubyDevInc/paho.mqtt.ruby"
   spec.license       = "MIT"
 
   # Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or
