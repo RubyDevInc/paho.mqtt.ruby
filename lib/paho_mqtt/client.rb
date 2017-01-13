@@ -526,7 +526,7 @@ module PahoMqtt
       begin
         result = IO.select([@socket], [], [], SELECT_TIMEOUT) unless @socket.nil?
         unless result.nil?
-          packet = PahoMqtt::Packet.read(@socket)
+          packet = PahoMqtt::Packet::Base.read(@socket)
           unless packet.nil?
             handle_packet packet
             @last_ping_resp = Time.now
