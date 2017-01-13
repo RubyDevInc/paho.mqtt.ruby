@@ -23,7 +23,7 @@ The following file describes the Paho Mqtt client API for the ruby programming l
   * [Handlers and Callbacks](#handlers-and-callbacks)
     * [Handlers](#handlers)
     * [Callbacks](#callbacks)
-  * Message Broker, Mosquitto
+* [Message Broker, Mosquitto](#message-broker,-mosquitto)
   
  ## Installation
 
@@ -263,6 +263,6 @@ end
 client.remove_topic_callback("/foo/bar")
 ```
 
-### Message Broker, Mosquitto
+## Message Broker, Mosquitto
 Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files. See [Mosquitto message broker page](https://mosquitto.org/) for more details.
 
