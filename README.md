@@ -23,9 +23,9 @@ The following file describes the Paho Mqtt client API for the ruby programming l
   * [Handlers and Callbacks](#handlers-and-callbacks)
     * [Handlers](#handlers)
     * [Callbacks](#callbacks)
-* [Message Broker, Mosquitto](#message-broker,-mosquitto)
+* [Message Broker, Mosquitto](#message-broker-mosquitto)
   
- ## Installation
+## Installation
 
 Add this line to your application's Gemfile:
 
