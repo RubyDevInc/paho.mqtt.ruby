@@ -208,8 +208,8 @@ client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, f
 ```
 
 ## Control loops
-
-The control loops should not be used in a deamon mode. They are automatically run in separate thread and execute the necessary operations for reading, writting and checking the connection state.
+/!\ The control loops should not be used in a deamon mode.  
+They are automatically run in separate thread and execute the necessary operations for reading, writting and checking the connection state.
 
 ### Reading loop
 The reading loop provides access to the socket in a reading mode. Periodically, the socket would be inspected to try to find a mqtt packet. The read loop accepts a parameter which  is the number of loop's turn. The default value is five turns.  
