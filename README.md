@@ -264,5 +264,55 @@ client.remove_topic_callback("/foo/bar")
 ```
 
 ## Message Broker, Mosquitto
-Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files. See [Mosquitto message broker page](https://mosquitto.org/) for more details.
+Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files.
+### Install mosquitto
+#### OSX (homebrew)
+```
+$ brew install mosquitto
+```
+### Running mosquitto
+#### Standard mode
+```
+ $ mosquitto
+```
 
+#### Encrypted mode
+In order to successfully run spec, or for testing with encrypted mode, some configurations are needed on mosquitto. Private keys and cerfificates should be setted on both client and server side. The [mosquitto-tls](https://mosquitto.org/man/mosquitto-tls-7.html) page really help to create all the required credentials. Once the credentials are created, the mosquitto's config files should be updated as following.
+
+```
+$ cp mosquitto.conf samples-mosquitto.conf
+$ nano mosquitto.conf
+```
+
+The following file enables the broker to support the unencrypted mode (default) on port 1883, and the encrypted mode on port 8883. Update the path with the file's location on your environment. 
+```
+### mosquitto.conf
+# =================================================================
+# General configuration
+# =================================================================
+.
+.
+.
+# =================================================================
+# Extra listeners
+# =================================================================
+.
+.
+listener 8883
+.
+.
+cafile   "Path to the root Certificate Authorithy file"
+certfile "Path to the server certificate file"
+keyfile  "Path to the server private keys file"
+.
+.
+.
+```
+
+Finally run the server with the updated configuration file.
+
+```
+$ mosquitto -c mosquitto.conf
+```
+
+See [Mosquitto message broker page](https://mosquitto.org/) for more details.
