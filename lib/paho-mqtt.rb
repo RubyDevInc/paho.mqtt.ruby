@@ -1,6 +1,6 @@
 require "paho_mqtt/version"
 require "paho_mqtt/client"
-require "paho_mqtt/packet/packet"
+require "paho_mqtt/packet"
 
 module PahoMqtt
   # Default connection setup
