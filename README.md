@@ -23,7 +23,7 @@ The following file describes the Paho Mqtt client API for the ruby programming l
   * [Handlers and Callbacks](#handlers-and-callbacks)
     * [Handlers](#handlers)
     * [Callbacks](#callbacks)
-* [Message Broker, Mosquitto](#message-broker-mosquitto)
+* [Mosquitto (message broker)](#mosquitto-message-broker)
   
 ## Installation
 
@@ -278,14 +278,14 @@ The default mode of mosquitto is unencrypted, listening on the port 1883.
 ```
 
 #### Encrypted mode
-In order to successfully pass the spec, or for testing in encrypted mode, some configurations are needed on mosquitto. Private keys and cerfificates should be setted on both client and server side. The [mosquitto-tls](https://mosquitto.org/man/mosquitto-tls-7.html) page might help you to create all the required credentials. Once the credentials are created, the mosquitto's config files should be updated as following.
+In order to successfully pass the spec, or for testing in encrypted mode, some configurations are needed on mosquitto. Private keys and certificates should be setted on both client side and server side. The [mosquitto-tls](https://mosquitto.org/man/mosquitto-tls-7.html) page might help you to create all the required credentials. Once the credentials are created, the mosquitto's config files should be updated as following.
 
 ```
 $ cp mosquitto.conf samples-mosquitto.conf
 $ nano mosquitto.conf
 ```
 
-The following file enables the broker to support the unencrypted mode (default) on port 1883, and the encrypted mode on port 8883. Update the path with the file's location on your environment. 
+The following file enables the broker to support the unencrypted mode (default) on port 1883, and the encrypted mode on port 8883. Update the path variable with the file's location on your environment. 
 ```
 ### mosquitto.conf
 # =================================================================
@@ -302,7 +302,7 @@ The following file enables the broker to support the unencrypted mode (default) 
 listener 8883
 .
 .
-cafile   "Path to the root Certificate Authorithy file"
+cafile   "Path to the certificate authorithy certificate file"
 certfile "Path to the server certificate file"
 keyfile  "Path to the server private keys file"
 .
