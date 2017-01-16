@@ -263,21 +263,22 @@ end
 client.remove_topic_callback("/foo/bar")
 ```
 
-## Message Broker, Mosquitto
+## Mosquitto (message broker)
 Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files.
 ### Install mosquitto
 #### OSX (homebrew)
 ```
 $ brew install mosquitto
 ```
-### Running mosquitto
-#### Standard mode
+### Run mosquitto
+#### Default mode
+The default mode of mosquitto is unencrypted, listening on the port 1883.
 ```
  $ mosquitto
 ```
 
 #### Encrypted mode
-In order to successfully run spec, or for testing with encrypted mode, some configurations are needed on mosquitto. Private keys and cerfificates should be setted on both client and server side. The [mosquitto-tls](https://mosquitto.org/man/mosquitto-tls-7.html) page really help to create all the required credentials. Once the credentials are created, the mosquitto's config files should be updated as following.
+In order to successfully pass the spec, or for testing in encrypted mode, some configurations are needed on mosquitto. Private keys and cerfificates should be setted on both client and server side. The [mosquitto-tls](https://mosquitto.org/man/mosquitto-tls-7.html) page might help you to create all the required credentials. Once the credentials are created, the mosquitto's config files should be updated as following.
 
 ```
 $ cp mosquitto.conf samples-mosquitto.conf
