@@ -24,7 +24,8 @@ The following file describes the Paho Mqtt client API for the ruby programming l
   * [Handlers](#handlers)
   * [Callbacks](#callbacks)
 * [Mosquitto (message broker)](#mosquitto-message-broker)
-  
+* [Thanks](#thanks)
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -317,3 +318,6 @@ $ mosquitto -c mosquitto.conf
 ```
 
 See [Mosquitto message broker page](https://mosquitto.org/) for more details.
+
+## Thanks
+Special thanks to [Nicholas Humfrey](https://github.com/njh) for providing a great help with the packet serializer/deserializer.
