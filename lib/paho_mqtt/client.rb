@@ -13,6 +13,7 @@ module PahoMqtt
     attr_accessor :mqtt_version
     attr_accessor :clean_session
     attr_accessor :persistent
+    attr_accessor :blocking
     attr_accessor :client_id
     attr_accessor :username
     attr_accessor :password
@@ -50,6 +51,7 @@ module PahoMqtt
       :mqtt_version => '3.1.1',
       :clean_session => true,
       :persistent => false,
+      :blocking => false,
       :client_id => nil,
       :username => nil,
       :password => nil,
@@ -97,7 +99,6 @@ module PahoMqtt
       @last_ping_req = Time.now
       @last_ping_resp = Time.now
       @last_packet_id = 0
-      @blocking = false
       @socket = nil
       @ssl_context = nil
       @writing_mutex = Mutex.new
@@ -252,7 +253,7 @@ module PahoMqtt
         }
       end
 
-      @socket.close unless @socket.nil?
+      @socket.close unless @socket.nil? || @socket.closed?
       @socket = nil
 
       @connection_state_mutex.synchronize {
@@ -270,7 +271,7 @@ module PahoMqtt
     end
 
     def subscribe(*topics)
-      unless topics.length == 0
+      unless valid_topics?(topics) == MQTT_ERR_FAIL
         send_subscribe(topics)
       else
         @logger.error("Subscribe topics need one topic or a list of topics.") if @logger.is_a?(Logger)
@@ -280,7 +281,7 @@ module PahoMqtt
     end
 
     def unsubscribe(*topics)
-      unless topics.length == 0
+      unless valid_topics?(topics) == MQTT_ERR_FAIL
         send_unsubscribe(topics)
       else
         @logger.error("Unsubscribe need at least one topics.") if @logger.is_a?(Logger)
@@ -403,7 +404,7 @@ module PahoMqtt
 
     def config_socket
       unless @socket.nil?
-        @socket.close
+        @socket.close unless @socket.closed?
         @socket = nil
       end
 
@@ -456,7 +457,7 @@ module PahoMqtt
         raise ParameterException
       end
 
-       @socket.close unless @socket.nil?
+       @socket.close unless @socket.nil? || @socket.closed?
        @socket = nil
 
        @last_ping_req = Time.now
@@ -524,9 +525,9 @@ module PahoMqtt
 
     def receive_packet
       begin
-        result = IO.select([@socket], [], [], SELECT_TIMEOUT) unless @socket.nil?
+        result = IO.select([@socket], [], [], SELECT_TIMEOUT) unless @socket.nil? || @socket.closed?
         unless result.nil?
-          packet = PahoMqtt::Packet.read(@socket)
+          packet = PahoMqtt::Packet::Base.read(@socket)
           unless packet.nil?
             handle_packet packet
             @last_ping_resp = Time.now
@@ -642,7 +643,7 @@ module PahoMqtt
 
       @subscribed_mutex.synchronize {
         to_unsub.each do |filter|
-          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter) }
+          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter.first) }
         end
       }
       @on_unsuback.call(packet) unless @on_unsuback.nil?
@@ -716,19 +717,23 @@ module PahoMqtt
         MQTT_ERR_FAIL
       end
     end
-    
+
     def send_packet(packet)
-      unless @socket.nil? || @socket.closed?
-        @socket.write(packet.to_s)
-        @logger.info("A packet #{packet.class} have been sent.") if @logger.is_a?(Logger)
-        @last_ping_req = Time.now
-        MQTT_ERR_SUCCESS
-      else
-        @logger.error("Trying to right a packet on a nil socket.") if @logger.is_a?(Logger)
-        MQTT_ERR_FAIL
+      begin
+          @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
+          @logger.info("A packet #{packet.class} have been sent.") if @logger.is_a?(Logger)
+          @last_ping_req = Time.now
+          MQTT_ERR_SUCCESS
+      rescue ::Exception => exp
+        disconnect(false)
+        if @persistent
+          reconnect
+        else
+          @logger.error("Trying to right a packet on a nil socket.") if @logger.is_a?(Logger)
+          raise(exp)
+        end
       end
     end
-    
     
     def append_to_writing(packet)
       @writing_mutex.synchronize {
@@ -768,23 +773,25 @@ module PahoMqtt
     end
 
     def send_subscribe(topics)
-      unless topics.length == 0
+      unless valid_topics?(topics) == MQTT_ERR_FAIL
         new_id = next_packet_id
         packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
           :topics => topics
         )        
-
         append_to_writing(packet)
         @suback_mutex.synchronize {
           @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
         }
-      end        
-      MQTT_ERR_SUCCESS
+        MQTT_ERR_SUCCESS
+      else
+        disconnect(false)
+        raise ProtocolViolation
+      end
     end
 
     def send_unsubscribe(topics)
-      unless topics.length == 0
+      unless valid_topics?(topics) == MQTT_ERR_FAIL
         new_id = next_packet_id
         packet = PahoMqtt::Packet::Unsubscribe.new(
           :id => new_id,
@@ -795,8 +802,11 @@ module PahoMqtt
         @unsuback_mutex.synchronize {
           @waiting_unsuback.push({:id => new_id, :packet => packet, :timestamp => Time.now})
         }
+        MQTT_ERR_SUCCESS
+      else
+        disconnect(false)
+        raise ProtocolViolation
       end
-      MQTT_ERR_SUCCESS
     end
 
     def send_publish(topic, payload, retain, qos)
@@ -865,6 +875,17 @@ module PahoMqtt
       )
 
       append_to_writing(packet)
+      MQTT_ERR_SUCCESS
+    end
+
+    def valid_topics?(topics)
+      unless topics.length == 0
+        topics.map do |topic|
+          return MQTT_ERR_FAIL if topic.first == ""
+        end
+      else
+        MQTT_ERR_FAIL
+      end
       MQTT_ERR_SUCCESS
     end
 
