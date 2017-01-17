@@ -76,7 +76,7 @@ describe PahoMqtt::Client do
     end
   end
   
-  context "With a client carrying ssl" do
+  context "Configure ssl context" do
     let(:client) { PahoMqtt::Client.new(:ssl => true) }
     
     it "Set up a ssl context with key and certificate" do
@@ -130,24 +130,11 @@ describe PahoMqtt::Client do
       expect(connected).to be true
     end
     
-    it "Automaticaly try to reconnect after a unexpected disconnect on persistent mode" do
-      client.ack_timeout = 2
-      client.persistent = true
-      client.connect(client.host, client.port, client.keep_alive, true)
-      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-      client.keep_alive = 0
-      sleep 0.001
-      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_NEW)
-      client.keep_alive = 15
-      sleep client.ack_timeout
-      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-    end
-
-    it "Automaticaly disconnect after the keep alive on not persistent mode" do
+    it "Automaticaly disconnect after the keep alive run out on not persistent mode" do
       client.ack_timeout = 2
       client.connect(client.host, client.port)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-      client.keep_alive = 0
+      client.keep_alive = 0 # Make the client disconnect
       sleep 0.001
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
       client.keep_alive = 15
@@ -174,9 +161,15 @@ describe PahoMqtt::Client do
     it "Subscribe to valid topic and return success" do
       expect(client.subscribe(valid_topics)).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
     end
-    
-    it "Try to subscribe to nil topic and return success" do
-      expect(client.subscribe(invalid_topics[1])).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
+
+    it "Subscribe to a topic and update the subscribed topic" do
+      subscribed = false
+      client.on_suback = lambda { |pck| subscribed  = true }
+      client.subscribe(valid_topics)
+      while !subscribed do
+        sleep 0.001
+      end
+      expect(client.subscribed_topics).to eq(valid_topics)
     end
 
     it "Subscribe to a topic and verifiy the on_suback callback"do
@@ -189,34 +182,61 @@ describe PahoMqtt::Client do
       expect(subscribed).to be true
     end
     
-    # TODO: Add rescue in subscribe to catch the exception
-    # it "Try to subscribe to valid topic with wrong qos" do
-    #   
-    #   expect(client.subscribe(invalid_topics[2])).to eq(SOME EXPECTION RETURN CODE)
-    # end
+    it "Try to subscribe to an empty topic" do
+      expect { client.subscribe(invalid_topics[0]) }.to raise_error(PahoMqtt::ProtocolViolation)
+    end
 
-    it "Unsubsribe to a valid topic" do
+    it "Try to subscribe to topic with invalid qos" do
+      subscribed = false
+      client.on_suback = lambda { |pck| subscribed = true }
+      expect {
+        client.subscribe(invalid_topics[1])
+        while !subscribed do
+          sleep 0.0001
+        end
+      }.to raise_error(::Exception)
+    end
+
+    it "Unsubscribe from a valid topic" do
+      expect(client.unsubscribe(valid_topics)).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
+    end
+
+    it "Unsubscribe and check if the subscribed topics have been updated" do
       subscribed = false
       client.on_suback = lambda { |pck| subscribed = true }
       client.subscribe(valid_topics)
       while !subscribed do
         sleep 0.0001
       end
-      expect(client.unsubscribe(valid_topics)).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
+      expect(client.subscribed_topics).to eq(valid_topics)
+      client.unsubscribe(valid_topics[1])
+      unsubscribed = false
+      client.on_unsuback = lambda { |pck| unsubscribed = true }
+      client.unsubscribe(valid_topics[1])
+      while !unsubscribed do
+        sleep 0.0001
+      end
+      expect(client.subscribed_topics).not_to eq(valid_topics)
     end
-    
-    # TODO: Add rescue in unsubscribe to catch the exception
-    # it "Try to unsubscribe from unvalid topic" do
-    #   expect(client.unsubscribe([]).to eq(SOME EXPECTION RETURN CODE)
-    # end
-    
+
+    it "Try to unsubscribe from an empty topic" do
+      expect{ client.unsubscribe(invalid_topics[0]) }.to raise_error(PahoMqtt::ProtocolViolation)
+    end
+
+    it "Try to unsubscribe to topic with invalid qos" do
+      unsubscribed = false
+      client.on_unsuback = lambda { |pck| unsubscribed = true }
+      expect {
+        client.subscribe(invalid_topics[1])
+        while !subscribed do
+          sleep 0.0001
+        end
+      }.to raise_error(::Exception)
+    end
+
     it "Publish a packet to a valid topic"do
       expect(client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], publish_content[:qos])).to eq(PahoMqtt::MQTT_ERR_SUCCESS)
     end
-    
-    # TODO: Add rescue in publish to catch the exception
-    # it "Pulish a packet to an invalid topic" do
-    # end
 
     it "Publish to a topic and verify the on_message callback" do
       message = false
@@ -224,8 +244,16 @@ describe PahoMqtt::Client do
       expect(message).to be false
       client.subscribe(valid_topics)
       client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], publish_content[:qos])
-      sleep client.ack_timeout
+      while !message do
+        sleep 0.0001
+      end
       expect(message).to be true
+    end
+
+    it "Publish a packet to an invalid topic" do
+      expect {
+        client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], 42)
+      }.to raise_error(RuntimeError, /Invalid QoS value/)
     end
 
     it "Publish to a topic and verify the callback registered for a specific topic" do
@@ -239,29 +267,43 @@ describe PahoMqtt::Client do
       expect(filter).to be false
       client.subscribe(valid_topics)
       client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], publish_content[:qos])
-      sleep client.ack_timeout
+      while !message do
+        sleep 0.0001
+      end
       expect(message).to be true
       expect(filter).to be false
       client.publish("/My_all_topic/topic1", "Hello World", false, 1)
-      sleep client.ack_timeout
+      while !filter do
+        sleep 0.0001
+      end
       expect(filter).to be true
     end
 
     it "Publish to a subscribed topic where callback is removed" do
+      message = false
+      client.on_message = lambda {|pck| message = true }
       filter = false
       client.add_topic_callback("/My_all_topic/topic1") do
         filter = true
       end
       expect(filter).to be false
+      expect(message).to be false
       client.subscribe(valid_topics)
       client.publish("/My_all_topic/topic1", "Hello World", false, 0)
-      sleep client.ack_timeout
+      while !message && !filter do
+        sleep 0.0001
+      end
       expect(filter).to be true
+      expect(message).to be true
       filter = false
+      message = false
       client.remove_topic_callback("/My_all_topic/topic1")
       client.publish("/My_all_topic/topic1", "Hello World", false, 0)      
-      sleep client.ack_timeout
+      while !message do
+        sleep 0.0001
+      end
       expect(filter).to be false
+      expect(message).to be true
     end
 
     it "Publish with qos 1 to subcribed topic and verfiy the on_puback callback" do
@@ -272,11 +314,13 @@ describe PahoMqtt::Client do
       expect(puback).to be false
       client.subscribe(valid_topics)
       client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], 1)
-      sleep client.ack_timeout
+      while !puback do
+        sleep 0.0001
+      end
       expect(puback).to be true
     end
     
-    it "Publish with qos 2 to subcribed topic and verfiy the on_puback callback" do
+    it "Publish with qos 2 to subcribed topic and verfiy the on_pubrec, on_pubrel and on_pubcomp callback" do
       pubrec = false
       pubrel = false
       pubcomp = false
@@ -290,10 +334,58 @@ describe PahoMqtt::Client do
       expect(pubcomp).to be false
       client.subscribe(["My_test_qos_2_topic", 2])
       client.publish("My_test_qos_2_topic", "Foo Bar", false, 2)
-      sleep client.ack_timeout
+      while !pubrec || !pubrel || !pubcomp do
+        sleep 0.0001
+      end
+
       expect(pubrec).to be true
       expect(pubrel).to be true
       expect(pubcomp).to be true
+    end
+  end
+
+  context "Already connected client on persistent mode" do
+    let(:client) { PahoMqtt::Client.new({:host => 'localhost', :ack_timeout => 2, :persistent => true})}
+    let(:valid_topics) { Array({"/My_all_topic/#"=> 2, "My_private_topic" => 1}) }
+
+    before(:each) do
+      client.connect
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
+    end
+
+    after(:each) do
+      client.disconnect
+    end
+
+    it "Automatically try to reconnect after a unexpected disconnect on persistent mode" do
+      connack = false
+      client.on_connack = lambda { |pck| connack = true; client.keep_alive = 15 }
+      client.keep_alive = 0 # Make the client disconnect
+      while !connack do
+        sleep 0.001
+      end
+      expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
+    end
+
+    it "Automatically resubscribe after unexpected disconnect" do
+      client.subscribe(valid_topics)
+      on_message = false
+      client.on_message {|pck| on_message = true}
+      client.on_connack { client.keep_alive = 15 }
+      client.publish("My_private_topic", "Foo Bar", false, 1)
+      while !on_message do
+        sleep 0.0001
+      end
+      on_message = false
+      client.keep_alive = 0 # Make the client disconnect
+      while client.connection_state != PahoMqtt::MQTT_CS_CONNECTED do
+        sleep 0.0001
+      end
+      client.publish("My_private_topic", "Foo Bar", false, 1)
+      while !on_message do
+        sleep 0.0001
+      end
+      expect(on_message).to be true
     end
   end
 end

@@ -8,22 +8,22 @@ The following file describes the Paho Mqtt client API for the ruby programming l
   * [Getting started](#getting-started)
 * [Client](#client)
   * [Initialization](#initialization)
-  * [Client's parameters](#clients\'s-parameter)
-  * [Connection configuration](#connection-configuration)
-    * [Unencrypted mode](#unencrypted-mode)
-    * [Encrypted mode](#encrypted-mode)
-    * [Persistence](#persistence)
-    * [Foreground and Deamon](#foreground-and-deamon)
-  * [Control loops](#control-loops)
-    * [Reading loop](#reading-loop)
-    * [Writing loop](#writing-loop)
-    * [Miscellaneous loop](#miscellaneous-loop)
+  * [Client's parameters](#clients-parameter)
   * [Subscription](#subscription)
   * [Publishing](#publishing)
-  * [Handlers and Callbacks](#handlers-and-callbacks)
-    * [Handlers](#handlers)
-    * [Callbacks](#callbacks)
-* [Message Broker, Mosquitto](#message-broker-mosquitto)
+* [Connection configuration](#connection-configuration)
+  * [Unencrypted mode](#unencrypted-mode)
+  * [Encrypted mode](#encrypted-mode)
+  * [Persistence](#persistence)
+  * [Foreground and Deamon](#foreground-and-deamon)
+* [Control loops](#control-loops)
+  * [Reading loop](#reading-loop)
+  * [Writing loop](#writing-loop)
+  * [Miscellaneous loop](#miscellaneous-loop)
+* [Handlers and Callbacks](#handlers-and-callbacks)
+  * [Handlers](#handlers)
+  * [Callbacks](#callbacks)
+* [Mosquitto (message broker)](#mosquitto-message-broker)
   
 ## Installation
 
@@ -142,81 +142,6 @@ The description of the callback accessor is detailed in the section dedicated to
 * connection_state    : The current state of the connection between the message broker and the client
 ```
 
-### Connection configuration
-#### Unencrypted mode
-The most simple connection way is the unencrypted mode. All data would be send clearly to the message broker, also it might not be safe for sensitive data. The connect method may set up or override some parameters of the client, the host, the port, the keep_alive timer, the persistence mode and blocking mode.
-```ruby
-### Simply connect to the message broker with default value or pre-set value
-client.connect
-# Or
-### Connect to the message broker with all parameter
-client.connect("iot.eclipse.org", 1883, client.keep_alive, client.persistent, client.blocking)
-```
-
-#### Encrypted mode
-The client supports the encrypted connection threw tls-ssl socket. In order to use encrypted mode, the ssl flag of the client should be set to True.   
-``` ruby
-### Set the encryption mode to True
-client.ssl = true
-### Configure the user SSL key and the certificate
-client.config_ssl_context(certificate_path, key_path)
-client.connect("test.mosquitto.org", 8883)
-### Or if rootCA is needed
-client.config_ssl_context(certificate_path, key_path, rootCA_path)
-client.connect("test.mosquitto.org", 8884)
-```
-
-#### Persistence
-The client holds a keep_alive timer is the reference time that the connection should be hold. The timer is reset every time a new valid packet is received from the message broker. The persistence flag, when set to True, enables the client to be more independent from the keep_alive timer. Just before the keep_alive run out, the client send a ping request to tell to the message broker that the connection should be kept. The persistent mode also enables the client to automatically reconnect to the message broker after an unexpected failure.
-
-
-When the client's persistence flag is set to False, it just simply disconnects when the keep_alive timer runs out.  
-
-```ruby
-### This will connect to the message broker, keep connected and automatically reconnect on failure
-client.connect('iot.eclipse.org', 1883, client.keep_alive, true, client.blocking)
-#Or
-### This only connect to the message broker, disconnect after keep_alive or on failure
-client.connect('iot.eclipse.org', 1883, client.keep_alive, false, client.blocking)
-```
-
-#### Foreground and Deamon
-The client could be connected to the message broker using the main thread in foreground or as a daemon in a seperate thread. The default mode is daemon mode, the deamon would run in the background the read/write operation as well as the control of the timers. If the client is connected using the main thread, all control operations are left to the user, using the different control loops. There are four different loop roles is detailed in the next part.
-
-```ruby
-### Connect to the message broker executing the mqtt_loop (socket reading/writing) in the background
-client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, true)
-#Or
-### This only connect to the message broker, nothing more
-client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, false)
-```
-
-### Control loops
-
-The control loops should not be used in a deamon mode.
-
-#### Reading loop
-The reading loop provides access to the socket in a reading mode. Periodically, the socket would be inspected to try to find a mqtt packet. The read loop accepts a parameter which  is the number of loop's turn. The default value is five turns.  
-The default value is defined in the PahoMqtt module as the constant PahoMqtt::MAX_READ, another module constant could be modified to control the socket inspection period. The referring constant is SELECT_TIMEOUT (PahoMqtt::SELECT_TIMEOUT) and its default value is 0.  
-```ruby
-### Trying to read 'max_packet' packets from the client socket
-client.loop_read(max_packet)
-```
-
-#### Writing loop
-The writing loop send the packets which have previously been stacked by MQTT operations. This loop also accepts a parameter which is the maximum packets number that could be write as the MAX_WRITING constant (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
-```ruby
-### Writing 'max_packet' packets to the client socket
-client.loop_write(max_packet)
-```
-
-#### Miscellaneous loop
-The misc loop perform different control operations, modifying the packets states and the connection state. The misc loop parses the different queue of packet that are waiting for an acknolegement. If the ack_timeout of a packet had run out, the packet is resent. The size of the different waiting queues is defined as module constants. This loop also asserts that the connection is still available by checking the keep_alive timer.
-```ruby
-### Perfom control operations on packets queues and connection
-client.loop_misc
-```
-
 ### Subscription
 In order to read a message sent on a topic, the client should subscribe to this topic. The client enables to subscribe to several topics in the same subscribe request. The subscription could also be done by using a wildcard, see more details on [MQTT protocol specifications](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html). Each topic is subscribed with a maximum qos level, only message with a qos level lower or equal to this value would be forwarded to the client. The subscribe command accepts one or several pair, each pair is composed by the topic (or wildcard) and the maximum qos level.  
 ```ruby
@@ -233,11 +158,86 @@ User data could be sent to the message broker with the publish operation. A publ
 client.publish("/foo/bar", "Hello Wourld!", false, 1)
 ```
 
-### Handlers and Callbacks
-#### Handlers
+## Connection configuration
+### Unencrypted mode
+The most simple connection way is the unencrypted mode. All data would be send clearly to the message broker, also it might not be safe for sensitive data. The connect method may set up or override some parameters of the client, the host, the port, the keep_alive timer, the persistence mode and blocking mode.
+```ruby
+### Simply connect to the message broker with default value or pre-set value
+client.connect
+# Or
+### Connect to the message broker with all parameter
+client.connect("iot.eclipse.org", 1883, client.keep_alive, client.persistent, client.blocking)
+```
+
+### Encrypted mode
+The client supports the encrypted connection threw tls-ssl socket. In order to use encrypted mode, the ssl flag of the client should be set to True.   
+``` ruby
+### Set the encryption mode to True
+client.ssl = true
+### Configure the user SSL key and the certificate
+client.config_ssl_context(certificate_path, key_path)
+client.connect("test.mosquitto.org", 8883)
+### Or if rootCA is needed
+client.config_ssl_context(certificate_path, key_path, rootCA_path)
+client.connect("test.mosquitto.org", 8884)
+```
+
+### Persistence
+The client holds a keep_alive timer is the reference time that the connection should be hold. The timer is reset every time a new valid packet is received from the message broker. The persistence flag, when set to True, enables the client to be more independent from the keep_alive timer. Just before the keep_alive run out, the client send a ping request to tell to the message broker that the connection should be kept. The persistent mode also enables the client to automatically reconnect to the message broker after an unexpected failure.
+
+
+When the client's persistence flag is set to False, it just simply disconnects when the keep_alive timer runs out.  
+
+```ruby
+### This will connect to the message broker, keep connected and automatically reconnect on failure
+client.connect('iot.eclipse.org', 1883, client.keep_alive, true, client.blocking)
+#Or
+### This only connect to the message broker, disconnect after keep_alive or on failure
+client.connect('iot.eclipse.org', 1883, client.keep_alive, false, client.blocking)
+```
+
+### Foreground and Deamon
+The client could be connected to the message broker using the main thread in foreground or as a daemon in a seperate thread. The default mode is daemon mode, the deamon would run in the background the read/write operation as well as the control of the timers. If the client is connected using the main thread, all control operations are left to the user, using the different control loops. There are four different loop roles is detailed in the next part.
+
+```ruby
+### Connect to the message broker executing the mqtt_loop (socket reading/writing) in the background
+client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, true)
+#Or
+### This only connect to the message broker, nothing more
+client.connect('iot.eclipse.org', 1883, client.keep_alive, client.persistence, false)
+```
+
+## Control loops
+/!\ The control loops should not be used in a deamon mode.  
+They are automatically run in separate thread and execute the necessary operations for reading, writting and checking the connection state.
+
+### Reading loop
+The reading loop provides access to the socket in a reading mode. Periodically, the socket would be inspected to try to find a mqtt packet. The read loop accepts a parameter which  is the number of loop's turn. The default value is five turns.  
+The default value is defined in the PahoMqtt module as the constant PahoMqtt::MAX_READ, another module constant could be modified to control the socket inspection period. The referring constant is SELECT_TIMEOUT (PahoMqtt::SELECT_TIMEOUT) and its default value is 0.  
+```ruby
+### Trying to read 'max_packet' packets from the client socket
+client.loop_read(max_packet)
+```
+
+### Writing loop
+The writing loop send the packets which have previously been stacked by MQTT operations. This loop also accepts a parameter which is the maximum packets number that could be write as the MAX_WRITING constant (PahoMqtt::MAX_WRITING). The writing loop exit if the maximum number of packet have been sent or if the waiting packet queue is empty.
+```ruby
+### Writing 'max_packet' packets to the client socket
+client.loop_write(max_packet)
+```
+
+### Miscellaneous loop
+The misc loop perform different control operations, modifying the packets states and the connection state. The misc loop parses the different queue of packet that are waiting for an acknolegement. If the ack_timeout of a packet had run out, the packet is resent. The size of the different waiting queues is defined as module constants. This loop also asserts that the connection is still available by checking the keep_alive timer.
+```ruby
+### Perfom control operations on packets queues and connection
+client.loop_misc
+```
+
+## Handlers and Callbacks
+### Handlers
 When a packet is received and inspected, an appropriate handler is called. The handler performs different control operation such as update the connection state, update the subscribed topics, and send publish control packets. Each packet has a specific handler, except the pingreq/pingresp packet. Before returning the handler executes a callback if the user has configured one for this type of packet. The publish handler may execute sequencially two callbacks. One callback for the reception of a generic publish packet and another one if the user has configured a callback for the topic where the publish packet has been received.  
 
-#### Callbacks
+### Callbacks
 The callbacks could be defined in a three different ways, as block, as Proc or as Lambda. The callback has access to the packet which triggered it.  
 ```ruby
 ### Register a callback trigger on the reception of a CONNACK packet
@@ -263,6 +263,57 @@ end
 client.remove_topic_callback("/foo/bar")
 ```
 
-## Message Broker, Mosquitto
-Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files. See [Mosquitto message broker page](https://mosquitto.org/) for more details.
+## Mosquitto (message broker)
+Mosquitto is a message broker support by Eclipse which is quite easy-going. In order to run spec or samples files, a message broker is needed. Mosquitto enable to run locally a message broker, it could be configured with the mosquitto.conf files.
+### Install mosquitto
+#### OSX (homebrew)
+```
+$ brew install mosquitto
+```
+### Run mosquitto
+#### Default mode
+The default mode of mosquitto is unencrypted, listening on the port 1883.
+```
+ $ mosquitto
+```
 
+#### Encrypted mode
+In order to successfully pass the spec, or for testing in encrypted mode, some configurations are needed on mosquitto. Private keys and certificates should be setted on both client side and server side. The [mosquitto-tls](https://mosquitto.org/man/mosquitto-tls-7.html) page might help you to create all the required credentials. Once the credentials are created, the mosquitto's config files should be updated as following.
+
+```
+$ cp mosquitto.conf samples-mosquitto.conf
+$ nano mosquitto.conf
+```
+
+The following file enables the broker to support the unencrypted mode (default) on port 1883, and the encrypted mode on port 8883. Update the path variable with the file's location on your environment. 
+```
+### mosquitto.conf
+# =================================================================
+# General configuration
+# =================================================================
+.
+.
+.
+# =================================================================
+# Extra listeners
+# =================================================================
+.
+.
+listener 8883
+.
+.
+cafile   "Path to the certificate authorithy certificate file"
+certfile "Path to the server certificate file"
+keyfile  "Path to the server private keys file"
+.
+.
+.
+```
+
+Finally run the server with the updated configuration file.
+
+```
+$ mosquitto -c mosquitto.conf
+```
+
+See [Mosquitto message broker page](https://mosquitto.org/) for more details.
