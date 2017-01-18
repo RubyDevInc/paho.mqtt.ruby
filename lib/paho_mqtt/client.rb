@@ -165,12 +165,16 @@ module PahoMqtt
     def connect_async(host, port=1883, keep_alive)
       @mqtt_thread = Thread.new do
         @reconnect_thread.kill unless @reconnect_thread.nil? || !@reconnect_thread.alive?
-        while @connection_state == MQTT_CS_CONNECTED do
+        while connected? do
           mqtt_loop
         end
       end
     end
 
+    def connected?
+      @connection_state == MQTT_CS_CONNECTED
+    end
+    
     def loop_write(max_packet=MAX_WRITING)
       @writing_mutex.synchronize {
         cnt = 0
@@ -209,14 +213,14 @@ module PahoMqtt
         retry_time.times do
           @logger.debug("New reconnect atempt...") if @logger.is_a?(Logger)
           connect
-          if @connection_state == MQTT_CS_CONNECTED
+          if connected?
             break
           else
             sleep retry_tempo
           end
         end
-        if @connection_state != MQTT_CS_CONNECTED
-          @logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if @logger.is_a?(Logger)
+        unless connected?
+        @logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if @logger.is_a?(Logger)
           disconnect(false)
           exit
         end
@@ -471,13 +475,13 @@ module PahoMqtt
 
          # Waiting a Connack packet for "ack_timeout" second from the remote
          connect_timeout = Time.now + @ack_timeout
-         while (Time.now <= connect_timeout) && (@connection_state != MQTT_CS_CONNECTED) do
+         while (Time.now <= connect_timeout) && (!connected?) do
            receive_packet
            sleep 0.0001
          end
        end
 
-       if @connection_state != MQTT_CS_CONNECTED
+       unless connected?
          @logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}, socket is \"#{@socket}\".") if @logger.is_a?(Logger)
          unless Thread.current == @reconnect_thread
            raise Exception.new("Connection failed. Check log for more details.")
@@ -488,7 +492,7 @@ module PahoMqtt
     end
 
     def check_keep_alive
-      if @keep_alive >= 0 && @connection_state == MQTT_CS_CONNECTED
+      if @keep_alive >= 0 && connected?
         now = Time.now
         timeout_req = (@last_ping_req + (@keep_alive * 0.7).ceil)
 
