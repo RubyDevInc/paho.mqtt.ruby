@@ -629,7 +629,7 @@ module PahoMqtt
       @subscribed_mutex.synchronize {
         @subscribed_topics.concat(adjust_qos)
       }
-      @on_suback.call(packet) unless @on_suback.nil?
+      @on_suback.call(adjust_qos) unless @on_suback.nil?
     end
 
     def handle_unsuback(packet)
@@ -650,7 +650,7 @@ module PahoMqtt
           @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter.first) }
         end
       }
-      @on_unsuback.call(packet) unless @on_unsuback.nil?
+      @on_unsuback.call(to_unsub) unless @on_unsuback.nil?
     end
 
     def handle_publish(packet)
