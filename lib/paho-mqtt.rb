@@ -47,6 +47,34 @@ module PahoMqtt
     nil
   ]
 
+  CLIENT_ATTR_DEFAULTS = {
+      :logger => nil,
+      :host => "",
+      :port => nil,
+      :mqtt_version => '3.1.1',
+      :clean_session => true,
+      :persistent => false,
+      :blocking => false,
+      :client_id => nil,
+      :username => nil,
+      :password => nil,
+      :ssl => false,
+      :will_topic => nil,
+      :will_payload => nil,
+      :will_qos => 0,
+      :will_retain => false,
+      :keep_alive => 60,
+      :ack_timeout => 5,
+      :on_connack => nil,
+      :on_suback => nil,
+      :on_unsuback => nil,
+      :on_puback => nil,
+      :on_pubrel => nil,
+      :on_pubrec => nil,
+      :on_pubcomp => nil,
+      :on_message => nil,
+  }
+    
   Thread.abort_on_exception = true
 
   class Exception < ::Exception
