@@ -79,16 +79,8 @@ module PahoMqtt
         if @keep_alive < 0
           raise "Invalid keep-alive value: cannot be less than 0"
         end
-
-        # Set the Connect flags
-        @connect_flags = 0
-        @connect_flags |= 0x02 if @clean_session
-        @connect_flags |= 0x04 unless @will_topic.nil?
-        @connect_flags |= ((@will_qos & 0x03) << 3)
-        @connect_flags |= 0x20 if @will_retain
-        @connect_flags |= 0x40 unless @password.nil?
-        @connect_flags |= 0x80 unless @username.nil?
-        body += encode_bytes(@connect_flags)
+        
+        body += encode_flags(@connect_flags)
         body += encode_short(@keep_alive)
         body += encode_string(@client_id)
         unless will_topic.nil?
@@ -98,9 +90,21 @@ module PahoMqtt
         end
         body += encode_string(@username) unless @username.nil?
         body += encode_string(@password) unless @password.nil?
-        return body
+        body
       end
 
+      def encode_flags(flags)
+        # Set the Connect flags
+        flags = 0
+        flags |= 0x02 if @clean_session
+        flags |= 0x04 unless @will_topic.nil?
+        flags |= ((@will_qos & 0x03) << 3)
+        flags |= 0x20 if @will_retain
+        flags |= 0x40 unless @password.nil?
+        flags |= 0x80 unless @username.nil?
+        encode_bytes(flags)
+      end
+      
       # Parse the body (variable header and payload) of a Connect packet
       def parse_body(buffer)
         super(buffer)
@@ -115,13 +119,17 @@ module PahoMqtt
         end
 
         @connect_flags = shift_byte(buffer)
-        @clean_session = ((@connect_flags & 0x02) >> 1) == 0x01
         @keep_alive = shift_short(buffer)
         @client_id = shift_string(buffer)
-        if ((@connect_flags & 0x04) >> 2) == 0x01
+        parse_connect_flags(@connect_flag, buffer)
+      end
+
+      def parse_connect_flags(flags, buffer)
+        @clean_session = ((@connect_flags & 0x02) >> 1) == 0x01
+        if ((flags & 0x04) >> 2) == 0x01
           # Last Will and Testament
-          @will_qos = ((@connect_flags & 0x18) >> 3)
-          @will_retain = ((@connect_flags & 0x20) >> 5) == 0x01
+          @will_qos = ((flags & 0x18) >> 3)
+          @will_retain = ((flags & 0x20) >> 5) == 0x01
           @will_topic = shift_string(buffer)
           # The MQTT v3.1 specification says that the payload is a UTF-8 string
           @will_payload = shift_string(buffer)
@@ -133,7 +141,7 @@ module PahoMqtt
           @password = shift_string(buffer)
         end
       end
-
+      
       # Returns a human readable string, summarising the properties of the packet
       def inspect
         str = "\#<#{self.class}: "
