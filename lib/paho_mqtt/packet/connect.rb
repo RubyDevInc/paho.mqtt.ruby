@@ -104,7 +104,7 @@ module PahoMqtt
         flags |= 0x80 unless @username.nil?
         encode_bytes(flags)
       end
-
+      
       # Parse the body (variable header and payload) of a Connect packet
       def parse_body(buffer)
         super(buffer)
@@ -141,7 +141,7 @@ module PahoMqtt
           @password = shift_string(buffer)
         end
       end
-
+      
       # Returns a human readable string, summarising the properties of the packet
       def inspect
         str = "\#<#{self.class}: "
