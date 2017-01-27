@@ -20,14 +20,6 @@ describe PahoMqtt::Client do
       expect(client.will_retain).to be false
       expect(client.keep_alive).to eq(60)
       expect(client.ack_timeout).to eq(5)
-      expect(client.on_connack).to be_nil
-      expect(client.on_suback).to be_nil
-      expect(client.on_unsuback).to be_nil
-      expect(client.on_puback).to be_nil
-      expect(client.on_pubrel).to be_nil
-      expect(client.on_pubrel).to be_nil
-      expect(client.on_pubcomp).to be_nil
-      expect(client.on_message).to be_nil
     end
 
     it "Initialize the client paramter" do
@@ -64,15 +56,6 @@ describe PahoMqtt::Client do
       expect(client.keep_alive).to eq(20)
       expect(client.ack_timeout).to eq(3)
       expect(client.on_message.is_a?(Proc)).to be true
-    end
-    
-    it "Initialize an empty client and set up the will" do
-      client = PahoMqtt::Client.new
-      client.config_will("Sample_topic", "Bye Bye", true, 1)
-      expect(client.will_topic).to eq("Sample_topic")
-      expect(client.will_payload).to eq("Bye Bye")
-      expect(client.will_retain).to be true
-      expect(client.will_qos).to eq(1)
     end
   end
   
@@ -281,14 +264,14 @@ describe PahoMqtt::Client do
 
     it "Publish to a subscribed topic where callback is removed" do
       message = false
-      client.on_message = lambda {|pck| message = true }
+      client.on_message = lambda {|pck| message = true}
       filter = false
       client.add_topic_callback("/My_all_topic/topic1") do
         filter = true
       end
       expect(filter).to be false
       expect(message).to be false
-      client.subscribe(valid_topics)
+      client.subscribe(["/My_all_topic/topic1", 1])
       client.publish("/My_all_topic/topic1", "Hello World", false, 0)
       while !message && !filter do
         sleep 0.0001
@@ -370,7 +353,7 @@ describe PahoMqtt::Client do
     it "Automatically resubscribe after unexpected disconnect" do
       client.subscribe(valid_topics)
       on_message = false
-      client.on_message {|pck| on_message = true}
+      client.on_message {|pck| on_message = true }
       client.on_connack { client.keep_alive = 15 }
       client.publish("My_private_topic", "Foo Bar", false, 1)
       while !on_message do
@@ -382,6 +365,7 @@ describe PahoMqtt::Client do
         sleep 0.0001
       end
       client.publish("My_private_topic", "Foo Bar", false, 1)
+      on_message = false
       while !on_message do
         sleep 0.0001
       end

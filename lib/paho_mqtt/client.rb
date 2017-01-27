@@ -1,6 +1,10 @@
 require 'openssl'
 require 'socket'
-require 'logger'
+require 'paho_mqtt/handler'
+require 'paho_mqtt/connection_helper'
+require 'paho_mqtt/sender'
+require 'paho_mqtt/publisher'
+require 'paho_mqtt/subscriber'
 
 module PahoMqtt
   class Client
@@ -15,7 +19,7 @@ module PahoMqtt
     attr_accessor :username
     attr_accessor :password
     attr_accessor :ssl
-    
+
     # Last will attributes:
     attr_accessor :will_topic
     attr_accessor :will_payload
@@ -26,22 +30,22 @@ module PahoMqtt
     attr_accessor :keep_alive
     attr_accessor :ack_timeout
 
-    #Callback attributes
-    attr_accessor :on_message
-    attr_accessor :on_connack
-    attr_accessor :on_suback
-    attr_accessor :on_unsuback
-    attr_accessor :on_puback
-    attr_accessor :on_pubrel
-    attr_accessor :on_pubrec
-    attr_accessor :on_pubcomp
-
     #Read Only attribute
-    attr_reader :registered_callback
-    attr_reader :subscribed_topics
     attr_reader :connection_state
-    
+
     def initialize(*args)
+      @last_ping_resp = Time.now
+      @last_packet_id = 0
+      @ssl_context = nil
+      @sender = nil
+      @handler = Handler.new
+      @connection_helper = nil
+      @connection_state = MQTT_CS_DISCONNECT
+      @connection_state_mutex = Mutex.new
+      @mqtt_thread = nil
+      @reconnect_thread = nil
+      @id_mutex = Mutex.new
+
       if args.last.is_a?(Hash)
         attr = args.pop
       else
@@ -64,22 +68,6 @@ module PahoMqtt
       if  @client_id.nil? || @client_id == ""
         @client_id = generate_client_id
       end
-
-      @last_ping_resp = Time.now
-      @last_packet_id = 0
-      @ssl_context = nil
-      @sender = nil
-      @handler = nil
-      @connection_helper = nil
-      @connection_state = MQTT_CS_DISCONNECT
-      @connection_state_mutex = Mutex.new
-      @subscribed_topics = []
-      @registered_callback = []
-      @waiting_suback = []
-      @waiting_unsuback = []
-      @mqtt_thread = nil
-      @reconnect_thread = nil
-      @id_mutex = Mutex.new
     end
 
     def generate_client_id(prefix='paho_ruby', lenght=16)
@@ -109,16 +97,18 @@ module PahoMqtt
         @connection_state = MQTT_CS_NEW
       }
       @mqtt_thread.kill unless @mqtt_thread.nil? 
-      @connection_helper = PahoMqtt::ConnectionHelper.new
-      @connection_helper.setup_connection(host, port, @ssl_context)
+      @connection_helper = ConnectionHelper.new(@sender)
+      @connection_helper.setup_connection(host, port, @ssl, @ssl_context, @ack_timeout)
       @sender = @connection_helper.sender
-      @connection_helper.send_connect(@mqtt_version, @clean_session, @keep_alive, @client_id, @username, @password, @will_topic,@will_payload, @will_qos, @will_retain)
-      @sender.last_ping_req = Time.now
-      @handler = @connection_helper.handler
-      @connection_state = @connection_helper.do_connect(reconnect?)
+      @connection_helper.send_connect(@mqtt_version, @clean_session, @keep_alive, @client_id, @username, @password, @will_topic, @will_payload, @will_qos, @will_retain)
+      @connection_state = @connection_helper.do_connect(reconnect?, @handler, @ack_timeout)
+      @subscriber.nil? ? @subscriber = Subscriber.new(@sender) : @subscriber.config_subscription(next_packet_id)
+      @publisher.nil? ? @publisher = Publisher.new(@sender) : @publisher.config_all_message_queue
+      @handler.config_pubsub(@publisher, @subscriber)
+      @sender.flush_waiting_packet(true)
       daemon_mode unless @blocking || !connected?
     end
-    
+
     def daemon_mode
       @mqtt_thread = Thread.new do
         @reconnect_thread.kill unless @reconnect_thread.nil? || !@reconnect_thread.alive?
@@ -146,7 +136,17 @@ module PahoMqtt
 
     def loop_read(max_packet=MAX_READ)
       max_packet.times do
-        @handler.receive_packet(@socket)
+        begin
+          @handler.receive_packet
+        rescue ::Exception
+          disconnect(false)
+          if @persistent
+            reconnect
+          else
+            @logger.error("The packet reading have failed.") if PahoMqtt.logger?
+            raise ReadException
+          end
+        end
       end
     end
 
@@ -158,7 +158,7 @@ module PahoMqtt
     end
 
     def loop_misc
-      if check_keep_alive(@persistent) == MQTT_CS_DISCONNECT
+      if @connection_helper.check_keep_alive(@persistent, @handler.last_ping_resp, @keep_alive) == MQTT_CS_DISCONNECT
         disconnect(false)
         reconnect if persistent
       end
@@ -169,7 +169,7 @@ module PahoMqtt
     def reconnect(retry_time=RECONNECT_RETRY_TIME, retry_tempo=RECONNECT_RETRY_TEMPO)
       @reconnect_thread = Thread.new do
         retry_time.times do
-          @logger.debug("New reconnect atempt...") if @logger.is_a?(Logger)
+          @logger.debug("New reconnect atempt...") if PahoMqtt.logger?
           connect
           if connected?
             break
@@ -178,7 +178,7 @@ module PahoMqtt
           end
         end
         unless connected?
-          @logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if @logger.is_a?(Logger)
+          @logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
           disconnect(false)
           exit
         end
@@ -196,32 +196,39 @@ module PahoMqtt
 
     def publish(topic, payload="", retain=false, qos=0)
       if topic == "" || !topic.is_a?(String)
-        @logger.error("Publish topics is invalid, not a string or empty.") if @logger.is_a?(Logger)
+        @logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
         raise ArgumentError
       end
       id = next_packet_id
       @publisher.send_publish(topic, payload, retain, qos, id)
+      MQTT_ERR_SUCCESS
     end
 
     def subscribe(*topics)
       begin
-        unless @subscriber.send_subscribe(topics, id) == MQTT_ERR_SUCCESS
+        id = next_packet_id
+        unless @subscriber.send_subscribe(topics, id) == PahoMqtt::MQTT_ERR_SUCCESS
           check_persistent
-        rescue ProtocolViolation
-          @logger.error("Subscribe topics need one topic or a list of topics.") if @logger.is_a?(Logger)
-          disconnect(false)
         end
+        MQTT_ERR_SUCCESS
+      rescue ProtocolViolation
+        @logger.error("Subscribe topics need one topic or a list of topics.") if PahoMqtt.logger?
+        disconnect(false)
+        raise ProtocolViolation
       end
     end
 
     def unsubscribe(*topics)
       begin
+        id = next_packet_id
         unless @subscriber.send_unsubscribe(topics, id) == MQTT_ERR_SUCCESS
           check_persistent
-        rescue ProtocolViolation
-          @logger.error("Unsubscribe need at least one topics.") if @logger.is_a?(Logger)
-          disconnect(false)
         end
+        MQTT_ERR_SUCCESS
+      rescue ProtocolViolation
+        @logger.error("Unsubscribe need at least one topics.") if PahoMqtt.logger?
+        disconnect(false)
+        raise ProtocolViolation
       end
     end
 
@@ -230,7 +237,7 @@ module PahoMqtt
     end
 
     def add_topic_callback(topic, callback=nil, &block)
-      @handler.register_callback(topic, callback, &block)
+      @handler.register_topic_callback(topic, callback, &block)
     end
 
     def remove_topic_callback(topic)
@@ -238,43 +245,83 @@ module PahoMqtt
     end
     
     def on_connack(&block)
-      @on_connack = block if block_given?
-      @on_connack
+      @handler.on_connack = block if block_given?
+      @handler.on_connack
     end
 
     def on_suback(&block)
-      @on_suback = block if block_given?
-      @on_suback
+      @handler.on_suback = block if block_given?
+      @handler.on_suback
     end
 
     def on_unsuback(&block)
-      @on_unsuback = block if block_given?
-      @on_unsuback
+      @handler.on_unsuback = block if block_given?
+      @handler.on_unsuback
     end
 
     def on_puback(&block)
-      @on_puback = block if block_given?
-      @on_puback
+      @handler.on_puback = block if block_given?
+      @handler.on_puback
     end
 
     def on_pubrec(&block)
-      @on_pubrec = block if block_given?
-      @on_pubrec
+      @handler.on_pubrec = block if block_given?
+      @handler.on_pubrec
     end
 
     def on_pubrel(&block)
-      @on_pubrel = block if block_given?
-      @on_pubrel
+      @handler.on_pubrel = block if block_given?
+      @handler.on_pubrel
     end
 
     def on_pubcomp(&block)
-      @on_pubcomp = block if block_given?
-      @on_pubcomp
+      @handler.on_pubcomp = block if block_given?
+      @handler.on_pubcomp
     end
 
     def on_message(&block)
-      @on_message = block if block_given?
-      @on_message
+      @handler.on_message = block if block_given?
+      @handler.on_message
+    end
+
+    def on_connack=(callback)
+      @handler.on_connack = callback if callback.is_a?(Proc)
+    end
+
+    def on_suback=(callback)
+      @handler.on_suback = callback if callback.is_a?(Proc)
+    end
+
+    def on_unsuback=(callback)
+      @handler.on_unsuback = callback if callback.is_a?(Proc)
+    end
+
+    def on_puback=(callback)
+      @handler.on_puback = callback if callback.is_a?(Proc)
+    end
+
+    def on_pubrec=(callback)
+      @handler.on_pubrec = callback if callback.is_a?(Proc)
+    end
+
+    def on_pubrel=(callback)
+      @handler.on_pubrel = callback if callback.is_a?(Proc)
+    end
+
+    def on_pubcomp=(callback)
+      @handler.on_pubcomp = callback if callback.is_a?(Proc)
+    end
+
+    def on_message=(callback)
+      @handler.on_message = callback if callback.is_a?(Proc)
+    end
+
+    def registered_callback
+      @handler.registered_callback
+    end
+
+    def subscribed_topics
+      @subscriber.subscribed_topics
     end
 
 
@@ -306,7 +353,7 @@ module PahoMqtt
       if @persistent
         reconnect
       else
-        @logger.error("Trying to write a packet on a nil socket.") if @logger.is_a?(Logger)
+        @logger.error("Trying to write a packet on a nil socket.") if PahoMqtt.logger?
         raise(::Exception)
       end
     end
