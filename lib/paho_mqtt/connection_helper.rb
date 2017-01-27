@@ -33,13 +33,17 @@ module PahoMqtt
     def do_disconnect(publisher, explicit, mqtt_thread)
       @logger.debug("Disconnecting from #{@host}") if PahoMqtt.logger?
       if explicit
-        @sender.flush_waiting_packet
-        send_disconnect
-        mqtt_thread.kill if mqtt_thread && mqtt_thread.alive?
-        publisher.flush_publisher unless publisher.nil?
+        explicit_disconnect(publisher, mqtt_thread)
       end
       @socket.close unless @socket.nil? || @socket.closed?
       @socket = nil
+    end
+
+    def explicit_disconnect(publisher, mqtt_thread)
+      @sender.flush_waiting_packet
+      send_disconnect
+      mqtt_thread.kill if mqtt_thread && mqtt_thread.alive?
+      publisher.flush_publisher unless publisher.nil?
     end
 
     def setup_connection(host, port, ssl, ssl_context=nil, ack_timeout)
@@ -60,10 +64,8 @@ module PahoMqtt
       end
       if ssl
         unless ssl_context.nil?
-          @socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, ssl_context)
-          @socket.sync_close = true
-          @socket.connect
-        else
+          encrypted_socket(tcp_socket, ssl_context)
+         else
           @logger.error("The ssl context was found as nil while the socket's opening.") if PahoMqtt.logger?
           raise Exception
         end
@@ -72,25 +74,39 @@ module PahoMqtt
       end
     end
 
+    def encrypted_socket(tcp_socket, ssl_context)
+      @socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, ssl_context)
+      @socket.sync_close = true
+      @socket.connect
+    end
+
     def clean_start(host, port)
+      self.host = host
+      self.port = port
+      unless @socket.nil?
+        @socket.close unless @socket.closed?
+        @socket = nil
+      end
+    end
+
+    def host=(host)
       if host.nil? || host == ""
         @logger.error("The host was found as nil while the connection setup.") if PahoMqtt.logger?
         raise ArgumentError
       else
         @host = host
       end
+    end
+
+    def port=(port)
       if port.to_i <= 0
         @logger.error("The port value is invalid (<= 0). Could not setup the connection.") if PahoMqtt.logger?
         raise ArgumentError
       else
         @port = port
       end
-      unless @socket.nil?
-        @socket.close unless @socket.closed?
-        @socket = nil
-      end
     end
-    
+
     def send_connect(mqtt_version, clean_session, keep_alive, client_id, username, password, will_topic, will_payload,will_qos, will_retain)
       packet = PahoMqtt::Packet::Connect.new(
         :version => mqtt_version,

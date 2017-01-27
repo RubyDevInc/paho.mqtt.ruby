@@ -9,12 +9,11 @@ module PahoMqtt
       @subscribed_mutex = Mutex.new
       @suback_mutex = Mutex.new
       @unsuback_mutex = Mutex.new
-      @subscribed_topics = []
       @sender = sender
     end
 
     def config_subscription(new_id)
-      unless @subscribed_topics == []
+      unless @subscribed_topics == [] || @subscribed_topics.nil?
         packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
           :topics => subscribed_topics
@@ -133,13 +132,12 @@ module PahoMqtt
         @logger.error("Topics and filters are not found as String while matching topics to filter.") if logger?
         raise ParameterException
       end
-      rc = false
       index = 0
       while index < [topic.length, filter.length].max do
         if topic[index].nil? || filter[index].nil?
           break
         elsif filter[index] == '#' && index == (filter.length - 1) 
-          rc = true
+          true
           break
         elsif filter[index] == topic[index] || filter[index] == '+'
           index = index + 1
