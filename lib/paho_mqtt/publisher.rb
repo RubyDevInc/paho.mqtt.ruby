@@ -153,7 +153,7 @@ module PahoMqtt
       }
       @pubrel_mutex.synchronize {
         @waiting_pubrel = []
-        }
+      }
       @pubcomp_mutex.synchronize {
         @waiting_pubcomp = []
       }

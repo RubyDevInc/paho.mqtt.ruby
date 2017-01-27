@@ -138,7 +138,7 @@ module PahoMqtt
       max_packet.times do
         begin
           @handler.receive_packet
-        rescue ::Exception
+        rescue StandardError
           disconnect(false)
           if @persistent
             reconnect

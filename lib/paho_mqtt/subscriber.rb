@@ -147,7 +147,7 @@ module PahoMqtt
           break
         end
       end
-      rc ||= (index == [topic.length, filter.length].max)
+      index == [topic.length, filter.length].max
     end
   end
 end

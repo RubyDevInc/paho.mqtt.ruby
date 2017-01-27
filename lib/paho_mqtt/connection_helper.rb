@@ -55,7 +55,7 @@ module PahoMqtt
       @logger.debug("Atempt to connect to host: #{@host}") if PahoMqtt.logger?
       begin
         tcp_socket = TCPSocket.new(@host, @port)
-      rescue ::Exception => exp
+      rescue StandardError
         @logger.warn("Could not open a socket with #{@host} on port #{@port}") if PahoMqtt.logger?
       end
       if ssl

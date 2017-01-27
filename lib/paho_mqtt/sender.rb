@@ -20,7 +20,7 @@ module PahoMqtt
         @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
         @last_ping_req = Time.now
         MQTT_ERR_SUCCESS
-      rescue ::Exception
+      rescue StandardError
         raise WritingException
       end
     end
