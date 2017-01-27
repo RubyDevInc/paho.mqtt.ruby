@@ -27,7 +27,7 @@ module PahoMqtt
         unless packet.nil?
           if packet.is_a?(PahoMqtt::Packet::Connack)
             @last_ping_resp = Time.now
-            cs = handle_connack(packet)
+            handle_connack(packet)
           else
             handle_packet(packet)
             @last_ping_resp = Time.now
@@ -86,18 +86,22 @@ module PahoMqtt
     def handle_connack(packet)
       if packet.return_code == 0x00
         @logger.debug("Connack receive and connection accepted.") if PahoMqtt.logger?
-        if @clean_session && !packet.session_present
-          @logger.debug("New session created for the client") if PahoMqtt.logger?
-        elsif !@clean_session && !packet.session_present
-          @logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
-        elsif !@clean_session && packet.session_present
-          @logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
-        end
+        handle_connack_accepted(packet)
       else
         handle_connack_error(packet.return_code)
       end
       @on_connack.call(packet) unless @on_connack.nil?
       MQTT_CS_CONNECTED
+    end
+
+    def handle_connack_accepted(packet)
+      if @clean_session && !packet.session_present
+        @logger.debug("New session created for the client") if PahoMqtt.logger?
+      elsif !@clean_session && !packet.session_present
+        @logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
+      elsif !@clean_session && packet.session_present
+        @logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
+      end
     end
 
     def handle_pingresp
