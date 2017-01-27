@@ -1,37 +1,36 @@
 module PahoMqtt
   class Subscriber
-    
-    attr_accessor :subscribed_topics
-    attr_accessor :sender
-    
-    def initialize
-      @subscribe_mutex = Mutex.new
+
+    attr_reader :subscribed_topics
+
+    def initialize(sender)
+      @waiting_suback = []
+      @waiting_unsuback = []
+      @subscribed_mutex = Mutex.new
       @suback_mutex = Mutex.new
+      @unsuback_mutex = Mutex.new
       @subscribed_topics = []
+      @sender = sender
     end
 
-    def config_subscription
+    def config_subscription(new_id)
       unless @subscribed_topics == []
-        new_id = next_packet_id
         packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
           :topics => subscribed_topics
         )
-        
         @subscribed_mutex.synchronize {
           subscribed_topics = []
         }
-        
         @suback_mutex.synchronize {
-          waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
+          @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
         }
         @sender.send_packet(packet)
       end
       MQTT_ERR_SUCCESS
     end
 
-    def add_subscription(max_qos, packet_id)
-      adjust_qos = []
+    def add_subscription(max_qos, packet_id, adjust_qos)
       @suback_mutex.synchronize {
         adjust_qos, @waiting_suback = @waiting_suback.partition { |pck| pck[:id] == packet_id }
       }
@@ -43,12 +42,12 @@ module PahoMqtt
           elsif max_qos[0] == 128
             adjust_qos.delete(t)
           else
-            @logger.error("The qos value is invalid in subscribe.") if @logger.is_a?(Logger)
+            @logger.error("The qos value is invalid in subscribe.") if logger?
             raise PacketException
           end
         end
       else
-        @logger.error("The packet id is invalid, already used.") if @logger.is_a?(Logger)
+        @logger.error("The packet id is invalid, already used.") if logger?
         raise PacketException
       end
       @subscribed_mutex.synchronize {
@@ -57,8 +56,7 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
 
-    def remove_subscription(packet_id)
-      to_unsub = nil
+    def remove_subscription(packet_id, to_unsub)
       @unsuback_mutex.synchronize {
         to_unsub, @waiting_unsuback = @waiting_unsuback.partition { |pck| pck[:id] == packet_id }
       }
@@ -66,7 +64,7 @@ module PahoMqtt
       if to_unsub.length == 1
         to_unsub = to_unsub.first[:packet].topics
       else
-        @logger.error("The packet id is invalid, already used.") if @logger.is_a?(Logger)
+        @logger.error("The packet id is invalid, already used.") if logger?
         raise PacketException
       end
 
@@ -78,24 +76,23 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
     
-    def send_subscribe(topics, new_id, waiting_suback)
+    def send_subscribe(topics, new_id)
       unless valid_topics?(topics) == MQTT_ERR_FAIL
         packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
           :topics => topics
         )        
         @sender.append_to_writing(packet)
-        suback_mutex.synchronize {
+        @suback_mutex.synchronize {
           @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
         }
         MQTT_ERR_SUCCESS
       else
-        disconnect(false)
         raise ProtocolViolation
       end
     end
 
-    def send_unsubscribe(topics, new_id, unsuback_mutex)
+    def send_unsubscribe(topics, new_id)
       unless valid_topics?(topics) == MQTT_ERR_FAIL
         packet = PahoMqtt::Packet::Unsubscribe.new(
           :id => new_id,
@@ -103,12 +100,11 @@ module PahoMqtt
         )
         
         @sender.append_to_writing(packet)
-        unsuback_mutex.synchronize {
+        @unsuback_mutex.synchronize {
           @waiting_unsuback.push({:id => new_id, :packet => packet, :timestamp => Time.now})
         }
         MQTT_ERR_SUCCESS
       else
-        disconnect(false)
         raise ProtocolViolation
       end
     end
@@ -134,7 +130,7 @@ module PahoMqtt
         topic = topics.split('/')
         filter = filters.split('/')
       else
-        @logger.error("Topics and filters are not found as String while matching topics to filter.") if @logger.is_a?(Logger)
+        @logger.error("Topics and filters are not found as String while matching topics to filter.") if logger?
         raise ParameterException
       end
       rc = false

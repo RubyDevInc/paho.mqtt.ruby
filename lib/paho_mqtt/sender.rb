@@ -1,14 +1,21 @@
 module PahoMqtt
   class Sender
-    
-    def initialize(socket)
-      @socket = socket
+
+    attr_accessor :last_ping_req
+
+    def initialize(ack_timeout)
+      @socket = nil
       @writing_queue = []
       @writing_mutex = Mutex.new
-      @last_ping_req = nil
+      @last_ping_req = -1
+      @ack_timeout = ack_timeout
     end
 
-    def sending(packet)
+    def socket=(socket)
+      @socket = socket
+    end
+
+    def send_packet(packet)
       begin
         @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
         @last_ping_req = Time.now
@@ -25,11 +32,12 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
 
-    def wrting_loop(max_packet)
+    def writing_loop(max_packet)
       @writing_mutex.synchronize {
         cnt = 0
         while !@writing_queue.empty? && cnt < max_packet do
-          send_packet(@writing_queue.shift)
+          packet = @writing_queue.shift
+          send_packet(packet)
           cnt += 1
         end
       }
@@ -37,13 +45,15 @@ module PahoMqtt
     end
 
     def flush_waiting_packet(sending=true)
-      @writing_mutex.synchronize {
-        @writing_queue.each do |m|
-          send_packet(m)
-        end
-      }
-    ensure
-      @writing_queue = []
+      if sending
+        @writing_mutex.synchronize {
+          @writing_queue.each do |m|
+            send_packet(m)
+          end
+        }
+      else
+        @writing_queue = []
+      end
     end
     
     def check_ack_alive(queue, mutex, max_packet)

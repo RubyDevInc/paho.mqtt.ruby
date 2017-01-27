@@ -1,8 +1,13 @@
 require "paho_mqtt/version"
 require "paho_mqtt/client"
 require "paho_mqtt/packet"
+require 'logger'
 
 module PahoMqtt
+  extend self
+
+  attr_accessor :logger
+
   # Default connection setup
   DEFAULT_SSL_PORT = 8883
   DEFAULT_PORT = 1883
@@ -48,7 +53,6 @@ module PahoMqtt
   ]
 
   CLIENT_ATTR_DEFAULTS = {
-      :logger => nil,
       :host => "",
       :port => nil,
       :mqtt_version => '3.1.1',
@@ -76,6 +80,21 @@ module PahoMqtt
   }
     
   Thread.abort_on_exception = true
+
+  def logger=(logger_path)
+    file = File.open(logger_path, "a+")
+    log_file = Logger.new(file)
+    log_file.level = Logger::DEBUG
+    @action_manager.logger = log_file
+  end
+
+  def logger
+    @logger
+  end
+
+  def logger?
+    @logger.is_a?(Logger)
+  end
 
   class Exception < ::Exception
   end

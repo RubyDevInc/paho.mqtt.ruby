@@ -1,15 +1,16 @@
 module PahoMqtt
   class Publisher
-    attr_accessor :sender
 
-    def initialize
+    def initialize(sender)
       @waiting_puback = []
       @waiting_pubrec = []
       @waiting_pubrel = []
       @waiting_pubcomp = []
       @puback_mutex = Mutex.new
       @pubrec_mutex = Mutex.new
+      @pubrel_mutex = Mutex.new
       @pubcomp_mutex = Mutex.new
+      @sender = sender
     end
 
     def send_publish(topic, payload, retain, qos, new_id)
@@ -38,13 +39,14 @@ module PahoMqtt
       case qos
       when 0
       when 1
-        @sender.send_puback(packet_id)
+        send_puback(packet_id)
       when 2
-        @sender.send_pubrec(packet_id)
+        send_pubrec(packet_id)
       else
-        @logger.error("The packet qos value is invalid in publish.") if @logger.is_a?(Logger)
+        @logger.error("The packet qos value is invalid in publish.") if logger?
         raise PacketException
       end
+      MQTT_ERR_SUCCESS
     end
 
     def send_puback(packet_id)
@@ -77,7 +79,7 @@ module PahoMqtt
       @pubrec_mutex.synchronize {
         @waiting_pubrec.delete_if { |pck| pck[:id] == packet_id }
       }
-      @sender.send_pubrel(packet_id)
+      send_pubrel(packet_id)
       MQTT_ERR_SUCCESS
     end
 
@@ -96,7 +98,7 @@ module PahoMqtt
       @pubrel_mutex.synchronize {
         @waiting_pubrel.delete_if { |pck| pck[:id] == packet_id }
       }
-      @sender.send_pubcomp(packet_id)
+      send_pubcomp(packet_id)
       MQTT_ERR_SUCCESS
     end
 
