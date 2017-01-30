@@ -1,10 +1,9 @@
-require 'openssl'
-require 'socket'
 require 'paho_mqtt/handler'
 require 'paho_mqtt/connection_helper'
 require 'paho_mqtt/sender'
 require 'paho_mqtt/publisher'
 require 'paho_mqtt/subscriber'
+require 'paho_mqtt/ssl_helper'
 
 module PahoMqtt
   class Client
@@ -32,6 +31,7 @@ module PahoMqtt
 
     #Read Only attribute
     attr_reader :connection_state
+    attr_reader :ssl_context
 
     def initialize(*args)
       @last_ping_resp = Time.now
@@ -75,16 +75,9 @@ module PahoMqtt
       @client_id = prefix << Array.new(lenght) { charset.sample }.join
     end
 
-    def ssl_context
-      @ssl_context ||= OpenSSL::SSL::SSLContext.new
-    end
-
     def config_ssl_context(cert_path, key_path, ca_path=nil)
       @ssl ||= true
-      @ssl_context = ssl_context
-      self.cert = cert_path
-      self.key = key_path
-      self.root_ca = ca_path
+      @ssl_context = SSLHelper.config_ssl_context(cert_path, key_path, ca_path)
     end
     
     def connect(host=@host, port=@port, keep_alive=@keep_alive, persistent=@persistent, blocking=@blocking)
@@ -101,7 +94,11 @@ module PahoMqtt
       @connection_helper.setup_connection(host, port, @ssl, @ssl_context, @ack_timeout)
       @sender = @connection_helper.sender
       @connection_helper.send_connect(@mqtt_version, @clean_session, @keep_alive, @client_id, @username, @password, @will_topic, @will_payload, @will_qos, @will_retain)
-      @connection_state = @connection_helper.do_connect(reconnect?, @handler, @ack_timeout)
+      begin
+        @connection_state = @connection_helper.do_connect(reconnect?, @handler, @ack_timeout)
+      rescue LowVersionException
+        downgrade_version
+      end
       @subscriber.nil? ? @subscriber = Subscriber.new(@sender) : @subscriber.config_subscription(next_packet_id)
       @publisher.nil? ? @publisher = Publisher.new(@sender) : @publisher.config_all_message_queue
       @handler.config_pubsub(@publisher, @subscriber)
@@ -130,7 +127,11 @@ module PahoMqtt
       begin
         @sender.writing_loop(max_packet)
       rescue WritingException
-        check_persistent
+        if check_persistence
+          reconnect
+        else
+          raise WritingException
+        end
       end
     end
 
@@ -138,13 +139,11 @@ module PahoMqtt
       max_packet.times do
         begin
           @handler.receive_packet
-        rescue StandardError
-          disconnect(false)
-          if @persistent
+        rescue ReadingException
+          if check_persistence
             reconnect
           else
-            @logger.error("The packet reading have failed.") if PahoMqtt.logger?
-            raise ReadException
+            raise ReadingException
           end
         end
       end
@@ -159,8 +158,7 @@ module PahoMqtt
 
     def loop_misc
       if @connection_helper.check_keep_alive(@persistent, @handler.last_ping_resp, @keep_alive) == MQTT_CS_DISCONNECT
-        disconnect(false)
-        reconnect if persistent
+        reconnect if check_persistence
       end
       @publisher.check_waiting_publisher
       @subscriber.check_waiting_subscriber
@@ -208,7 +206,7 @@ module PahoMqtt
       begin
         id = next_packet_id
         unless @subscriber.send_subscribe(topics, id) == PahoMqtt::MQTT_ERR_SUCCESS
-          check_persistent
+          reconnect if check_persistence
         end
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
@@ -222,7 +220,7 @@ module PahoMqtt
       begin
         id = next_packet_id
         unless @subscriber.send_unsubscribe(topics, id) == MQTT_ERR_SUCCESS
-          check_persistent
+          reconnect if check_persistence
         end
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
@@ -333,29 +331,19 @@ module PahoMqtt
       }
     end
 
-    def cert=(cert_path)
-      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
-    end
-
-    def key=(key_path)
-      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
-    end
-
-    def root_ca=(ca_path)
-      ssl_context.ca_file = ca_path
-      unless @ca_path.nil?
-        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER
-      end
-    end
-
-    def check_persistent
-      disconnect(false)
-      if @persistent
-        reconnect
+    def downgrade_version
+      @logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
+      if @mqtt_version != "3.1"
+        @mqtt_version = "3.1"
+        connect(@host, @port, @keep_alive)
       else
-        @logger.error("Trying to write a packet on a nil socket.") if PahoMqtt.logger?
-        raise(::Exception)
+        raise "Unsupported MQTT version"
       end
+    end
+
+    def check_persistence
+      disconnect(false)
+      @persistent
     end
   end
 end

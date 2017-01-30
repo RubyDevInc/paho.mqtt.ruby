@@ -102,7 +102,10 @@ module PahoMqtt
   class ProtocolViolation < PahoMqtt::Exception
   end
 
-  class ParameterException < PahoMqtt::Exception
+  class WritingException < PahoMqtt::Exception
+  end
+
+  class ReadingException < PahoMqtt::Exception
   end
 
   class PacketException < PahoMqtt::Exception

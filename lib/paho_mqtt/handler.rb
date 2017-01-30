@@ -86,7 +86,7 @@ module PahoMqtt
     def handle_connack(packet)
       if packet.return_code == 0x00
         @logger.debug("Connack receive and connection accepted.") if PahoMqtt.logger?
-        handle_connack_accepted(packet)
+        handle_connack_accepted(packet.session_present)
       else
         handle_connack_error(packet.return_code)
       end
@@ -94,14 +94,26 @@ module PahoMqtt
       MQTT_CS_CONNECTED
     end
 
-    def handle_connack_accepted(packet)
-      if @clean_session && !packet.session_present
+    def handle_connack_accepted(session_flag)
+      if clean_session?(session_flag)
         @logger.debug("New session created for the client") if PahoMqtt.logger?
-      elsif !@clean_session && !packet.session_present
+      elsif new_session?(session_flag)
         @logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
-      elsif !@clean_session && packet.session_present
+      elsif old_session?(session_flag)
         @logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
       end
+    end
+
+    def new_session?(session_flag)
+      !@clean_session && !session_flag
+    end
+
+    def clean_session?(session_flag)
+      @clean_session && !session_flag
+    end
+
+    def old_session?(session_flag)
+      !@clean_session && session_flag
     end
 
     def handle_pingresp
@@ -166,10 +178,7 @@ module PahoMqtt
       case return_code
       when 0x01
         @logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
-        if @mqtt_version != "3.1"
-          @mqtt_version = "3.1"
-          connect(@host, @port, @keep_alive)
-        end
+        raise LowVersionException
       when 0x02
         @logger.warn("Client Identifier is correct but not allowed by remote server.") if PahoMqtt.logger?
         MQTT_CS_DISCONNECTD
