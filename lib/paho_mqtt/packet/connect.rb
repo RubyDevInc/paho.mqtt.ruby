@@ -67,13 +67,7 @@ module PahoMqtt
       # Get serialisation of packet's body
       def encode_body
         body = ''
-        if @version == '3.1.0'
-          if @client_id.nil? or @client_id.bytesize < 1
-            raise "Client identifier too short while serialising packet"
-          elsif @client_id.bytesize > 23
-            raise "Client identifier too long when serialising packet"
-          end
-        end
+        check_version
         body += encode_string(@protocol_name)
         body += encode_bytes(@protocol_level.to_i)
         if @keep_alive < 0
@@ -91,6 +85,16 @@ module PahoMqtt
         body += encode_string(@username) unless @username.nil?
         body += encode_string(@password) unless @password.nil?
         body
+      end
+
+      def check_version
+        if @version == '3.1.0'
+          if @client_id.nil? or @client_id.bytesize < 1
+            raise "Client identifier too short while serialising packet"
+          elsif @client_id.bytesize > 23
+            raise "Client identifier too long when serialising packet"
+          end
+        end
       end
 
       def encode_flags(flags)

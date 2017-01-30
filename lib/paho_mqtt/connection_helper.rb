@@ -1,3 +1,5 @@
+require 'socket'
+
 module PahoMqtt
   class ConnectionHelper
 
@@ -63,21 +65,21 @@ module PahoMqtt
         @logger.warn("Could not open a socket with #{@host} on port #{@port}") if PahoMqtt.logger?
       end
       if ssl
-        unless ssl_context.nil?
-          encrypted_socket(tcp_socket, ssl_context)
-         else
-          @logger.error("The ssl context was found as nil while the socket's opening.") if PahoMqtt.logger?
-          raise Exception
-        end
+        encrypted_socket(tcp_socket, ssl_context)
       else
         @socket = tcp_socket
       end
     end
 
     def encrypted_socket(tcp_socket, ssl_context)
-      @socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, ssl_context)
-      @socket.sync_close = true
-      @socket.connect
+      unless ssl_context.nil?
+        @socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, ssl_context)
+        @socket.sync_close = true
+        @socket.connect
+      else
+        @logger.error("The ssl context was found as nil while the socket's opening.") if PahoMqtt.logger?
+        raise Exception
+      end
     end
 
     def clean_start(host, port)
@@ -144,7 +146,7 @@ module PahoMqtt
         @logger.debug("Checking if server is still alive.") if PahoMqtt.logger?
         send_pingreq
       end
-      
+
       timeout_resp = last_ping_resp + (keep_alive * 1.1).ceil
       if timeout_resp <= now
         @logger.debug("No activity period over timeout, disconnecting from #{@host}") if PahoMqtt.logger?

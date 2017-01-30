@@ -7,6 +7,7 @@ module PahoMqtt
       @waiting_suback = []
       @waiting_unsuback = []
       @subscribed_mutex = Mutex.new
+      @subscribed_topics = []
       @suback_mutex = Mutex.new
       @unsuback_mutex = Mutex.new
       @sender = sender
@@ -41,6 +42,7 @@ module PahoMqtt
           elsif max_qos[0] == 128
             adjust_qos.delete(t)
           else
+
             @logger.error("The qos value is invalid in subscribe.") if logger?
             raise PacketException
           end
@@ -125,19 +127,15 @@ module PahoMqtt
     end
 
     def match_filter(topics, filters)
-      if topics.is_a?(String) && filters.is_a?(String)
-        topic = topics.split('/')
-        filter = filters.split('/')
-      else
-        @logger.error("Topics and filters are not found as String while matching topics to filter.") if logger?
-        raise ParameterException
-      end
+      check_topics(topics, filters)
       index = 0
+      topic = topics.split('/')
+      filter = filters.split('/')
       while index < [topic.length, filter.length].max do
         if topic[index].nil? || filter[index].nil?
           break
-        elsif filter[index] == '#' && index == (filter.length - 1) 
-          true
+        elsif filter[index] == '#'
+          index == (filter.length - 1)
           break
         elsif filter[index] == topic[index] || filter[index] == '+'
           index = index + 1
@@ -146,6 +144,14 @@ module PahoMqtt
         end
       end
       index == [topic.length, filter.length].max
+    end
+
+    def check_topics(topics, filters)
+      if topics.is_a?(String) && filters.is_a?(String)
+      else
+        @logger.error("Topics or Wildcards are not found as String.") if logger?
+        raise ArgumentError
+      end
     end
   end
 end
