@@ -52,6 +52,13 @@ module PahoMqtt
     nil
   ]
 
+  CONNACK_ERROR_MESSAGE = {
+    0x02 => "Client Identifier is correct but not allowed by remote server.",
+    0x03 => "Connection established but MQTT service unvailable on remote server.",
+    0x04 => "User name or user password is malformed.",
+    0x05 => "Client is not authorized to connect to the server."
+  }
+
   CLIENT_ATTR_DEFAULTS = {
       :host => "",
       :port => nil,

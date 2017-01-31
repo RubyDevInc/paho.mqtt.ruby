@@ -5,24 +5,28 @@ module PahoMqtt
 
     attr_accessor :sender
 
-    def initialize(sender)
+    def initialize(handler, host, port, ssl, ssl_context, ack_timeout)
       @cs = MQTT_CS_DISCONNECT
       @socket = nil
-      @host = ""
-      @port = nil
-      @sender = sender
+      @host = host
+      @port = port
+      @ssl = ssl
+      @ssl_context = ssl_context
+      @ack_timeout = ack_timeout
+      @sender = Sender.new(ack_timeout)
+      @handler = handler
     end
 
-    def do_connect(reconnection=false, handler, ack_timeout)
-      handler.socket = @socket
+    def do_connect(reconnection=false)
+      @handler.socket = @socket
       # Waiting a Connack packet for "ack_timeout" second from the remote
-      connect_timeout = Time.now + ack_timeout
+      connect_timeout = Time.now + @ack_timeout
       while (Time.now <= connect_timeout) && (!is_connected?) do
-        @cs = handler.receive_packet
+        @cs = @handler.receive_packet
         sleep 0.0001
       end
       unless is_connected?
-        @logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}, socket is \"#{@socket}\".") if PahoMqtt.logger?
+        PahoMqtt.logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}, socket is \"#{@socket}\".") if PahoMqtt.logger?
         raise Exception.new("Connection failed. Check log for more details.") unless reconnection
       end
       @cs
@@ -33,7 +37,7 @@ module PahoMqtt
     end
 
     def do_disconnect(publisher, explicit, mqtt_thread)
-      @logger.debug("Disconnecting from #{@host}") if PahoMqtt.logger?
+      PahoMqtt.logger.debug("Disconnecting from #{@host}") if PahoMqtt.logger?
       if explicit
         explicit_disconnect(publisher, mqtt_thread)
       end
@@ -48,24 +52,23 @@ module PahoMqtt
       publisher.flush_publisher unless publisher.nil?
     end
 
-    def setup_connection(host, port, ssl, ssl_context=nil, ack_timeout)
-      clean_start(host, port)
-      config_socket(ssl, ssl_context)
+    def setup_connection
+      clean_start(@host, @port)
+      config_socket
       unless @socket.nil?
-        @sender = Sender.new(ack_timeout) if @sender.nil?
         @sender.socket = @socket
       end
     end
 
-    def config_socket(ssl, ssl_context)
-      @logger.debug("Atempt to connect to host: #{@host}") if PahoMqtt.logger?
+    def config_socket
+      PahoMqtt.logger.debug("Atempt to connect to host: #{@host}") if PahoMqtt.logger?
       begin
         tcp_socket = TCPSocket.new(@host, @port)
       rescue StandardError
-        @logger.warn("Could not open a socket with #{@host} on port #{@port}") if PahoMqtt.logger?
+        PahoMqtt.logger.warn("Could not open a socket with #{@host} on port #{@port}") if PahoMqtt.logger?
       end
-      if ssl
-        encrypted_socket(tcp_socket, ssl_context)
+      if @ssl
+        encrypted_socket(tcp_socket, @ssl_context)
       else
         @socket = tcp_socket
       end
@@ -77,7 +80,7 @@ module PahoMqtt
         @socket.sync_close = true
         @socket.connect
       else
-        @logger.error("The ssl context was found as nil while the socket's opening.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("The ssl context was found as nil while the socket's opening.") if PahoMqtt.logger?
         raise Exception
       end
     end
@@ -93,7 +96,7 @@ module PahoMqtt
 
     def host=(host)
       if host.nil? || host == ""
-        @logger.error("The host was found as nil while the connection setup.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("The host was found as nil while the connection setup.") if PahoMqtt.logger?
         raise ArgumentError
       else
         @host = host
@@ -102,7 +105,7 @@ module PahoMqtt
 
     def port=(port)
       if port.to_i <= 0
-        @logger.error("The port value is invalid (<= 0). Could not setup the connection.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("The port value is invalid (<= 0). Could not setup the connection.") if PahoMqtt.logger?
         raise ArgumentError
       else
         @port = port
@@ -110,6 +113,8 @@ module PahoMqtt
     end
 
     def send_connect(mqtt_version, clean_session, keep_alive, client_id, username, password, will_topic, will_payload,will_qos, will_retain)
+      setup_connection
+      # BUILD CONNECT PACKET
       packet = PahoMqtt::Packet::Connect.new(
         :version => mqtt_version,
         :clean_session => clean_session,
@@ -122,6 +127,7 @@ module PahoMqtt
         :will_qos => will_qos,
         :will_retain => will_retain
       )
+      @handler.clean_session = clean_session
       @sender.send_packet(packet)
       MQTT_ERR_SUCCESS
     end
@@ -141,15 +147,13 @@ module PahoMqtt
     def check_keep_alive(persistent, last_ping_resp, keep_alive)
       now = Time.now
       timeout_req = (@sender.last_ping_req + (keep_alive * 0.7).ceil)
- 
       if timeout_req <= now && persistent
-        @logger.debug("Checking if server is still alive.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("Checking if server is still alive.") if PahoMqtt.logger?
         send_pingreq
       end
-
       timeout_resp = last_ping_resp + (keep_alive * 1.1).ceil
       if timeout_resp <= now
-        @logger.debug("No activity period over timeout, disconnecting from #{@host}") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("No activity period over timeout, disconnecting from #{@host}") if PahoMqtt.logger?
         @cs = MQTT_CS_DISCONNECT
       end
       @cs

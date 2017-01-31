@@ -90,19 +90,15 @@ module PahoMqtt
         @connection_state = MQTT_CS_NEW
       }
       @mqtt_thread.kill unless @mqtt_thread.nil? 
-      @connection_helper = ConnectionHelper.new(@sender)
-      @connection_helper.setup_connection(host, port, @ssl, @ssl_context, @ack_timeout)
+      @connection_helper = ConnectionHelper.new(@handler, host, port, @ssl, @ssl_context, @ack_timeout)
       @sender = @connection_helper.sender
       @connection_helper.send_connect(@mqtt_version, @clean_session, @keep_alive, @client_id, @username, @password, @will_topic, @will_payload, @will_qos, @will_retain)
       begin
-        @connection_state = @connection_helper.do_connect(reconnect?, @handler, @ack_timeout)
+        @connection_state = @connection_helper.do_connect(reconnect?)
       rescue LowVersionException
         downgrade_version
       end
-      @subscriber.nil? ? @subscriber = Subscriber.new(@sender) : @subscriber.config_subscription(next_packet_id)
-      @publisher.nil? ? @publisher = Publisher.new(@sender) : @publisher.config_all_message_queue
-      @handler.config_pubsub(@publisher, @subscriber)
-      @sender.flush_waiting_packet(true)
+      build_pubsub
       daemon_mode unless @blocking || !connected?
     end
 
@@ -167,7 +163,7 @@ module PahoMqtt
     def reconnect(retry_time=RECONNECT_RETRY_TIME, retry_tempo=RECONNECT_RETRY_TEMPO)
       @reconnect_thread = Thread.new do
         retry_time.times do
-          @logger.debug("New reconnect atempt...") if PahoMqtt.logger?
+          PahoMqtt.logger.debug("New reconnect atempt...") if PahoMqtt.logger?
           connect
           if connected?
             break
@@ -176,7 +172,7 @@ module PahoMqtt
           end
         end
         unless connected?
-          @logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
+          PahoMqtt.logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
           disconnect(false)
           exit
         end
@@ -194,7 +190,7 @@ module PahoMqtt
 
     def publish(topic, payload="", retain=false, qos=0)
       if topic == "" || !topic.is_a?(String)
-        @logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
         raise ArgumentError
       end
       id = next_packet_id
@@ -210,7 +206,7 @@ module PahoMqtt
         end
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
-        @logger.error("Subscribe topics need one topic or a list of topics.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("Subscribe topics need one topic or a list of topics.") if PahoMqtt.logger?
         disconnect(false)
         raise ProtocolViolation
       end
@@ -224,7 +220,7 @@ module PahoMqtt
         end
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
-        @logger.error("Unsubscribe need at least one topics.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("Unsubscribe need at least one topics.") if PahoMqtt.logger?
         disconnect(false)
         raise ProtocolViolation
       end
@@ -332,13 +328,30 @@ module PahoMqtt
     end
 
     def downgrade_version
-      @logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
+      PahoMqtt.logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
       if @mqtt_version != "3.1"
         @mqtt_version = "3.1"
         connect(@host, @port, @keep_alive)
       else
         raise "Unsupported MQTT version"
       end
+    end
+
+    def build_pubsub
+      if @subscriber.nil?
+        @subscriber = Subscriber.new(@sender)
+      else
+        @subscriber.sender = @sender
+        @subscriber.config_subscription(next_packet_id)
+      end
+      if @publisher.nil?
+        @publisher = Publisher.new(@sender)
+      else
+        @publisher.sender = @sender
+        @publisher.config_all_message_queue
+      end
+      @handler.config_pubsub(@publisher, @subscriber)
+      @sender.flush_waiting_packet(true)
     end
 
     def check_persistence
