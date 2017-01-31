@@ -3,6 +3,7 @@ module PahoMqtt
 
     attr_reader :registered_callback
     attr_accessor :last_ping_resp
+    attr_accessor :clean_session
     
     def initialize
       @registered_callback = []
@@ -37,32 +38,14 @@ module PahoMqtt
     end
 
     def handle_packet(packet)
-      @logger.info("New packet #{packet.class} recieved.") if PahoMqtt.logger?
-      if packet.class == PahoMqtt::Packet::Suback
-        handle_suback(packet)
-      elsif packet.class == PahoMqtt::Packet::Unsuback
-        handle_unsuback(packet)
-      elsif packet.class == PahoMqtt::Packet::Publish
-        handle_publish(packet)
-      elsif packet.class == PahoMqtt::Packet::Puback
-        handle_puback(packet)
-      elsif packet.class == PahoMqtt::Packet::Pubrec
-        handle_pubrec(packet)
-      elsif packet.class == PahoMqtt::Packet::Pubrel
-        handle_pubrel(packet)
-      elsif packet.class == PahoMqtt::Packet::Pubcomp
-        handle_pubcomp(packet)
-      elsif packet.class == PahoMqtt::Packet::Pingresp
-        handle_pingresp
-      else
-        @logger.error("The packets header is invalid for packet: #{packet}") if PahoMqtt.logger?
-        raise PacketException
-      end
+      PahoMqtt.logger.info("New packet #{packet.class} recieved.") if PahoMqtt.logger?
+      type = packet_type(packet)
+      self.send("handle_#{type}", packet)
     end
 
     def register_topic_callback(topic, callback, &block)
       if topic.nil?
-        @logger.error("The topics where the callback is trying to be registered have been found nil.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("The topics where the callback is trying to be registered have been found nil.") if PahoMqtt.logger?
         raise ArgumentError
       end
       clear_topic_callback(topic)
@@ -76,7 +59,7 @@ module PahoMqtt
 
     def clear_topic_callback(topic)
       if topic.nil?
-        @logger.error("The topics where the callback is trying to be unregistered have been found nil.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("The topics where the callback is trying to be unregistered have been found nil.") if PahoMqtt.logger?
         raise ArgumentError
       end
       @registered_callback.delete_if {|pair| pair.first == topic}
@@ -85,7 +68,7 @@ module PahoMqtt
 
     def handle_connack(packet)
       if packet.return_code == 0x00
-        @logger.debug("Connack receive and connection accepted.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("Connack receive and connection accepted.") if PahoMqtt.logger?
         handle_connack_accepted(packet.session_present)
       else
         handle_connack_error(packet.return_code)
@@ -96,11 +79,11 @@ module PahoMqtt
 
     def handle_connack_accepted(session_flag)
       if clean_session?(session_flag)
-        @logger.debug("New session created for the client") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("New session created for the client") if PahoMqtt.logger?
       elsif new_session?(session_flag)
-        @logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
       elsif old_session?(session_flag)
-        @logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
       end
     end
 
@@ -116,7 +99,7 @@ module PahoMqtt
       !@clean_session && session_flag
     end
 
-    def handle_pingresp
+    def handle_pingresp(_packet)
       @last_ping_resp = Time.now
     end
 
@@ -175,22 +158,14 @@ module PahoMqtt
     end
 
     def handle_connack_error(return_code)
-      case return_code
-      when 0x01
-        @logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
+      if return_code ==  0x01
         raise LowVersionException
-      when 0x02
-        @logger.warn("Client Identifier is correct but not allowed by remote server.") if PahoMqtt.logger?
-        MQTT_CS_DISCONNECTD
-      when 0x03
-        @logger.warn("Connection established but MQTT service unvailable on remote server.") if PahoMqtt.logger?
-        MQTT_CS_DISCONNECTD
-      when 0x04
-        @logger.warn("User name or user password is malformed.") if PahoMqtt.logger?
-        MQTT_CS_DISCONNECTD
-      when 0x05
-        @logger.warn("Client is not authorized to connect to the server.") if PahoMqtt.logger?
-        MQTT_CS_DISCONNECTD
+      elsif CONNACK_ERROR_MESSAGE.has_key(return_code.to_sym)
+        PahoMqtt.logger.warm(CONNACK_ERRO_MESSAGE[return_code])
+        MQTT_CS_DISCONNECTED
+      else
+        PahoMqtt.logger("Unknown return code for CONNACK packet: #{return_code}")
+        raise PacketException
       end
     end
 
@@ -264,6 +239,17 @@ module PahoMqtt
 
     def on_message=(callback)
       @on_message = callback if callback.is_a?(Proc)
+    end
+
+    def packet_type(packet)
+      type = packet.class
+      if PahoMqtt::PACKET_TYPES[3..13].include?(type)
+        type.to_s.split('::').last.downcase
+      else
+        puts "Packet: #{packet.inspect}"
+        PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}") if PahoMqtt.logger?
+         raise PacketException
+      end
     end
   end
 end

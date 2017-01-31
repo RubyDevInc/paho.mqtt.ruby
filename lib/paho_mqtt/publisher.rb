@@ -13,6 +13,10 @@ module PahoMqtt
       @sender = sender
     end
 
+    def sender=(sender)
+      @sender = sender
+    end
+
     def send_publish(topic, payload, retain, qos, new_id)
       packet = PahoMqtt::Packet::Publish.new(
         :id => new_id,

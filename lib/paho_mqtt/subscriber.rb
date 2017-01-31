@@ -13,14 +13,18 @@ module PahoMqtt
       @sender = sender
     end
 
+    def sender=(sender)
+      @sender = sender
+    end
+
     def config_subscription(new_id)
       unless @subscribed_topics == [] || @subscribed_topics.nil?
         packet = PahoMqtt::Packet::Subscribe.new(
           :id => new_id,
-          :topics => subscribed_topics
+          :topics => @subscribed_topics
         )
         @subscribed_mutex.synchronize {
-          subscribed_topics = []
+          @subscribed_topics = []
         }
         @suback_mutex.synchronize {
           @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
@@ -126,24 +130,44 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
 
+
+    private
+
     def match_filter(topics, filters)
       check_topics(topics, filters)
       index = 0
+      rc = false
       topic = topics.split('/')
       filter = filters.split('/')
       while index < [topic.length, filter.length].max do
-        if topic[index].nil? || filter[index].nil?
+        if is_end?(topic[index], filter[index])
           break
-        elsif filter[index] == '#'
-          index == (filter.length - 1)
+        elsif is_wildcard?(filter[index])
+          rc = index == (filter.length - 1)
           break
-        elsif filter[index] == topic[index] || filter[index] == '+'
+        elsif keep_running?(filter[index], topic[index])
           index = index + 1
         else
           break
         end
       end
-      index == [topic.length, filter.length].max
+      is_matching?(rc, topic.length, filter.length, index)
+    end
+
+    def keep_running?(filter_part, topic_part)
+      filter_part == topic_part || filter_part == '+'
+    end
+
+    def is_wildcard?(filter_part)
+      filter_part == '#'
+    end
+
+    def is_end?(topic_part, filter_part)
+      topic_part.nil? || filter_part.nil?
+    end
+
+    def is_matching?(rc, topic_length, filter_length, index)
+      rc || index == [topic_length, filter_length].max
     end
 
     def check_topics(topics, filters)
