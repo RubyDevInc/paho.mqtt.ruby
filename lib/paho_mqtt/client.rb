@@ -90,8 +90,7 @@ module PahoMqtt
         @connection_state = MQTT_CS_NEW
       }
       @mqtt_thread.kill unless @mqtt_thread.nil? 
-      @connection_helper = ConnectionHelper.new(@handler, host, port, @ssl, @ssl_context, @ack_timeout)
-      @sender = @connection_helper.sender
+      init_connection
       @connection_helper.send_connect(@mqtt_version, @clean_session, @keep_alive, @client_id, @username, @password, @will_topic, @will_payload, @will_qos, @will_retain)
       begin
         @connection_state = @connection_helper.do_connect(reconnect?)
@@ -354,6 +353,15 @@ module PahoMqtt
       @sender.flush_waiting_packet(true)
     end
 
+    def init_connection
+      unless reconnect?
+        @connection_helper = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
+        @connection_helper.handler = @handler
+        @sender = @connection_helper.sender
+      end
+        @connection_helper.setup_connection
+    end
+    
     def check_persistence
       disconnect(false)
       @persistent

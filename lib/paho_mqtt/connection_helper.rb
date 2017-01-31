@@ -5,7 +5,7 @@ module PahoMqtt
 
     attr_accessor :sender
 
-    def initialize(handler, host, port, ssl, ssl_context, ack_timeout)
+    def initialize(host, port, ssl, ssl_context, ack_timeout)
       @cs = MQTT_CS_DISCONNECT
       @socket = nil
       @host = host
@@ -14,6 +14,9 @@ module PahoMqtt
       @ssl_context = ssl_context
       @ack_timeout = ack_timeout
       @sender = Sender.new(ack_timeout)
+    end
+
+    def handler=(handler)
       @handler = handler
     end
 

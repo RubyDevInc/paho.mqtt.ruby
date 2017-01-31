@@ -78,25 +78,27 @@ module PahoMqtt
     end
 
     def handle_connack_accepted(session_flag)
-      if clean_session?(session_flag)
-        PahoMqtt.logger.debug("New session created for the client") if PahoMqtt.logger?
-      elsif new_session?(session_flag)
-        PahoMqtt.logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
-      elsif old_session?(session_flag)
-        PahoMqtt.logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
-      end
+      clean_session?(session_flag)
+      new_session?(session_flag)
+      old_session?(session_flag)
     end
 
     def new_session?(session_flag)
-      !@clean_session && !session_flag
+      if !@clean_session && !session_flag
+        PahoMqtt.logger.debug("New session created for the client") if PahoMqtt.logger?
+      end
     end
 
     def clean_session?(session_flag)
-      @clean_session && !session_flag
+      if @clean_session && !session_flag
+        PahoMqtt.logger.debug("No previous session found by server, starting a new one.") if PahoMqtt.logger?
+      end
     end
 
     def old_session?(session_flag)
-      !@clean_session && session_flag
+      if !@clean_session && session_flag
+        PahoMqtt.logger.debug("Previous session restored by the server.") if PahoMqtt.logger?
+      end
     end
 
     def handle_pingresp(_packet)
