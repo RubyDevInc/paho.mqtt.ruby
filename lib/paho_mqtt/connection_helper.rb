@@ -115,22 +115,10 @@ module PahoMqtt
       end
     end
 
-    def send_connect(mqtt_version, clean_session, keep_alive, client_id, username, password, will_topic, will_payload,will_qos, will_retain)
+    def send_connect(session_params)
       setup_connection
-      # BUILD CONNECT PACKET
-      packet = PahoMqtt::Packet::Connect.new(
-        :version => mqtt_version,
-        :clean_session => clean_session,
-        :keep_alive => keep_alive,
-        :client_id => client_id,
-        :username => username,
-        :password => password,
-        :will_topic => will_topic,
-        :will_payload => will_payload,
-        :will_qos => will_qos,
-        :will_retain => will_retain
-      )
-      @handler.clean_session = clean_session
+      packet = PahoMqtt::Packet::Connect.new(session_params)
+      @handler.clean_session = session_params[:clean_session]
       @sender.send_packet(packet)
       MQTT_ERR_SUCCESS
     end
