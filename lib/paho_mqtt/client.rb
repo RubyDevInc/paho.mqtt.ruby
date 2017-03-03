@@ -91,7 +91,7 @@ module PahoMqtt
       }
       @mqtt_thread.kill unless @mqtt_thread.nil? 
       init_connection
-      @connection_helper.send_connect(@mqtt_version, @clean_session, @keep_alive, @client_id, @username, @password, @will_topic, @will_payload, @will_qos, @will_retain)
+      @connection_helper.send_connect(session_params)
       begin
         @connection_state = @connection_helper.do_connect(reconnect?)
       rescue LowVersionException
@@ -361,7 +361,20 @@ module PahoMqtt
       end
         @connection_helper.setup_connection
     end
-    
+
+    def session_params
+      {:version => @mqtt_version,
+       :clean_session => @clean_session,
+       :keep_alive => @keep_alive,
+       :client_id => @client_id,
+       :username => @username,
+       :password => @password,
+       :will_topic => @will_topic,
+       :will_payload => @will_payload,
+       :will_qos => @will_qos,
+       :will_retain => @will_retain}
+    end
+
     def check_persistence
       disconnect(false)
       @persistent
