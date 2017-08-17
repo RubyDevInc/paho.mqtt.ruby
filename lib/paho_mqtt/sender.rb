@@ -16,7 +16,7 @@ module PahoMqtt
   class Sender
 
     attr_accessor :last_ping_req
-
+    
     def initialize(ack_timeout)
       @socket = nil
       @writing_queue = []
@@ -46,8 +46,8 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
 
-      @writing_mutex.synchronize {
     def writing_loop(max_packet)
+      @writing_mutex.synchronize {
         cnt = 0
         while !@writing_queue.empty? && cnt < max_packet do
           packet = @writing_queue.shift
@@ -57,7 +57,7 @@ module PahoMqtt
       }
       MQTT_ERR_SUCCESS
     end
-
+    
     def flush_waiting_packet(sending=true)
       if sending
         @writing_mutex.synchronize {
