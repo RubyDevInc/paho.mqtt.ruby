@@ -1,8 +1,27 @@
+# Copyright (c) 2016-2017 Pierre Goudet <p-goudet@ruby-dev.jp>
+#
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License v1.0
+# and Eclipse Distribution License v1.0 which accompany this distribution.
+#
+# The Eclipse Public License is available at
+#    https://eclipse.org/org/documents/epl-v10.php.
+# and the Eclipse Distribution License is available at
+#   https://eclipse.org/org/documents/edl-v10.php.
+#
+# Contributors:
+#    Pierre Goudet - initial committer
+
 require "paho_mqtt/version"
 require "paho_mqtt/client"
 require "paho_mqtt/packet"
+require 'logger'
 
 module PahoMqtt
+  extend self
+
+  attr_accessor :logger
+
   # Default connection setup
   DEFAULT_SSL_PORT = 8883
   DEFAULT_PORT = 1883
@@ -47,7 +66,56 @@ module PahoMqtt
     nil
   ]
 
+  CONNACK_ERROR_MESSAGE = {
+    0x02 => "Client Identifier is correct but not allowed by remote server.",
+    0x03 => "Connection established but MQTT service unvailable on remote server.",
+    0x04 => "User name or user password is malformed.",
+    0x05 => "Client is not authorized to connect to the server."
+  }
+
+  CLIENT_ATTR_DEFAULTS = {
+      :host => "",
+      :port => nil,
+      :mqtt_version => '3.1.1',
+      :clean_session => true,
+      :persistent => false,
+      :blocking => false,
+      :client_id => nil,
+      :username => nil,
+      :password => nil,
+      :ssl => false,
+      :will_topic => nil,
+      :will_payload => nil,
+      :will_qos => 0,
+      :will_retain => false,
+      :keep_alive => 60,
+      :ack_timeout => 5,
+      :on_connack => nil,
+      :on_suback => nil,
+      :on_unsuback => nil,
+      :on_puback => nil,
+      :on_pubrel => nil,
+      :on_pubrec => nil,
+      :on_pubcomp => nil,
+      :on_message => nil,
+  }
+    
   Thread.abort_on_exception = true
+
+  def logger=(logger_path)
+    file = File.open(logger_path, "a+")
+    log_file = Logger.new(file)
+    log_file.level = Logger::DEBUG
+    @action_manager.logger = log_file
+  end
+
+  def logger
+    @logger
+  end
+
+  def logger?
+    @logger.is_a?(Logger)
+  end
 
   class Exception < ::Exception
   end
@@ -55,7 +123,10 @@ module PahoMqtt
   class ProtocolViolation < PahoMqtt::Exception
   end
 
-  class ParameterException < PahoMqtt::Exception
+  class WritingException < PahoMqtt::Exception
+  end
+
+  class ReadingException < PahoMqtt::Exception
   end
 
   class PacketException < PahoMqtt::Exception
