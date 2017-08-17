@@ -131,4 +131,7 @@ module PahoMqtt
 
   class PacketException < PahoMqtt::Exception
   end
+
+  class LowVersionException < PahoMqtt::Exception
+  end
 end
