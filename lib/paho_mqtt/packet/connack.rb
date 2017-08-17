@@ -1,17 +1,34 @@
 # encoding: BINARY
+### original file from the ruby-mqtt gem
+### located at https://github.com/njh/ruby-mqtt/blob/master/lib/mqtt/packet.rb
+### Copyright (c) 2009-2013 Nicholas J Humfrey
+
+# Copyright (c) 2016-2017 Pierre Goudet <p-goudet@ruby-dev.jp>
+#
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License v1.0
+# and Eclipse Distribution License v1.0 which accompany this distribution.
+#
+# The Eclipse Public License is available at
+#    https://eclipse.org/org/documents/epl-v10.php.
+# and the Eclipse Distribution License is available at
+#   https://eclipse.org/org/documents/edl-v10.php.
+#
+# Contributors:
+#    Pierre Goudet - initial committer
 
 module PahoMqtt
   module Packet
     class Connack < PahoMqtt::Packet::Base
       # Session Present flag
       attr_accessor :session_present
-      
+
       # The return code (defaults to 0 for connection accepted)
       attr_accessor :return_code
 
       # Default attribute values
       ATTR_DEFAULTS = {:return_code => 0x00}
-      
+
       # Create a new Client Connect packet
       def initialize(args={})
         # We must set flags before other attributes
@@ -81,4 +98,3 @@ module PahoMqtt
     end
   end
 end
-

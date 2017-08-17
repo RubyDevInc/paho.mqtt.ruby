@@ -1,4 +1,21 @@
 # encoding: BINARY
+### original file from the ruby-mqtt gem
+### located at https://github.com/njh/ruby-mqtt/blob/master/lib/mqtt/packet.rb
+### Copyright (c) 2009-2013 Nicholas J Humfrey
+
+# Copyright (c) 2016-2017 Pierre Goudet <p-goudet@ruby-dev.jp>
+#
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License v1.0
+# and Eclipse Distribution License v1.0 which accompany this distribution.
+#
+# The Eclipse Public License is available at
+#    https://eclipse.org/org/documents/epl-v10.php.
+# and the Eclipse Distribution License is available at
+#   https://eclipse.org/org/documents/edl-v10.php.
+#
+# Contributors:
+#    Pierre Goudet - initial committer
 
 module PahoMqtt
   module Packet
@@ -67,28 +84,14 @@ module PahoMqtt
       # Get serialisation of packet's body
       def encode_body
         body = ''
-        if @version == '3.1.0'
-          if @client_id.nil? or @client_id.bytesize < 1
-            raise "Client identifier too short while serialising packet"
-          elsif @client_id.bytesize > 23
-            raise "Client identifier too long when serialising packet"
-          end
-        end
+        check_version
         body += encode_string(@protocol_name)
         body += encode_bytes(@protocol_level.to_i)
         if @keep_alive < 0
           raise "Invalid keep-alive value: cannot be less than 0"
         end
 
-        # Set the Connect flags
-        @connect_flags = 0
-        @connect_flags |= 0x02 if @clean_session
-        @connect_flags |= 0x04 unless @will_topic.nil?
-        @connect_flags |= ((@will_qos & 0x03) << 3)
-        @connect_flags |= 0x20 if @will_retain
-        @connect_flags |= 0x40 unless @password.nil?
-        @connect_flags |= 0x80 unless @username.nil?
-        body += encode_bytes(@connect_flags)
+        body += encode_flags(@connect_flags)
         body += encode_short(@keep_alive)
         body += encode_string(@client_id)
         unless will_topic.nil?
@@ -98,7 +101,29 @@ module PahoMqtt
         end
         body += encode_string(@username) unless @username.nil?
         body += encode_string(@password) unless @password.nil?
-        return body
+        body
+      end
+
+      def check_version
+        if @version == '3.1.0'
+          if @client_id.nil? or @client_id.bytesize < 1
+            raise "Client identifier too short while serialising packet"
+          elsif @client_id.bytesize > 23
+            raise "Client identifier too long when serialising packet"
+          end
+        end
+      end
+
+      def encode_flags(flags)
+        # Set the Connect flags
+        flags = 0
+        flags |= 0x02 if @clean_session
+        flags |= 0x04 unless @will_topic.nil?
+        flags |= ((@will_qos & 0x03) << 3)
+        flags |= 0x20 if @will_retain
+        flags |= 0x40 unless @password.nil?
+        flags |= 0x80 unless @username.nil?
+        encode_bytes(flags)
       end
 
       # Parse the body (variable header and payload) of a Connect packet
@@ -115,13 +140,17 @@ module PahoMqtt
         end
 
         @connect_flags = shift_byte(buffer)
-        @clean_session = ((@connect_flags & 0x02) >> 1) == 0x01
         @keep_alive = shift_short(buffer)
         @client_id = shift_string(buffer)
-        if ((@connect_flags & 0x04) >> 2) == 0x01
+        parse_connect_flags(@connect_flag, buffer)
+      end
+
+      def parse_connect_flags(flags, buffer)
+        @clean_session = ((@connect_flags & 0x02) >> 1) == 0x01
+        if ((flags & 0x04) >> 2) == 0x01
           # Last Will and Testament
-          @will_qos = ((@connect_flags & 0x18) >> 3)
-          @will_retain = ((@connect_flags & 0x20) >> 5) == 0x01
+          @will_qos = ((flags & 0x18) >> 3)
+          @will_retain = ((flags & 0x20) >> 5) == 0x01
           @will_topic = shift_string(buffer)
           # The MQTT v3.1 specification says that the payload is a UTF-8 string
           @will_payload = shift_string(buffer)
