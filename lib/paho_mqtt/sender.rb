@@ -1,3 +1,17 @@
+# Copyright (c) 2016-2017 Pierre Goudet <p-goudet@ruby-dev.jp>
+#
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License v1.0
+# and Eclipse Distribution License v1.0 which accompany this distribution.
+#
+# The Eclipse Public License is available at
+#    https://eclipse.org/org/documents/epl-v10.php.
+# and the Eclipse Distribution License is available at
+#   https://eclipse.org/org/documents/edl-v10.php.
+#
+# Contributors:
+#    Pierre Goudet - initial committer
+
 module PahoMqtt
   class Sender
 
@@ -32,8 +46,8 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
 
-    def writing_loop(max_packet)
       @writing_mutex.synchronize {
+    def writing_loop(max_packet)
         cnt = 0
         while !@writing_queue.empty? && cnt < max_packet do
           packet = @writing_queue.shift
