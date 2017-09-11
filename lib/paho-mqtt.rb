@@ -106,7 +106,7 @@ module PahoMqtt
     file = File.open(logger_path, "a+")
     log_file = Logger.new(file)
     log_file.level = Logger::DEBUG
-    @action_manager.logger = log_file
+    @logger = log_file
   end
 
   def logger
