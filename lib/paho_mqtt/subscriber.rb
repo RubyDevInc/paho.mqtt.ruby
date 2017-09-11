@@ -89,7 +89,7 @@ module PahoMqtt
 
       @subscribed_mutex.synchronize {
         to_unsub.each do |filter|
-          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter.first) }
+          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filtergit) }
         end
       }
       MQTT_ERR_SUCCESS
@@ -136,7 +136,12 @@ module PahoMqtt
     def valid_topics?(topics)
       unless topics.length == 0
         topics.map do |topic|
-          return MQTT_ERR_FAIL if topic.first == ""
+          case topic
+          when Array
+            return MQTT_ERR_FAIL if topic.first == ""
+          when String
+            return MQTT_ERR_FAIL if topic == ""
+          end
         end
       else
         MQTT_ERR_FAIL
