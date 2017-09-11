@@ -61,12 +61,12 @@ module PahoMqtt
             adjust_qos.delete(t)
           else
 
-            @logger.error("The qos value is invalid in subscribe.") if logger?
+            @logger.error("The qos value is invalid in subscribe.") if PahoMqtt.logger?
             raise PacketException
           end
         end
       else
-        @logger.error("The packet id is invalid, already used.") if logger?
+        @logger.error("The packet id is invalid, already used.") if PahoMqtt.logger?
         raise PacketException
       end
       @subscribed_mutex.synchronize {
@@ -83,13 +83,14 @@ module PahoMqtt
       if to_unsub.length == 1
         to_unsub = to_unsub.first[:packet].topics
       else
-        @logger.error("The packet id is invalid, already used.") if logger?
+        @logger.error("The packet id is invalid, already used.") if PahoMqtt.logger?
         raise PacketException
       end
 
+      print to_unsub
       @subscribed_mutex.synchronize {
         to_unsub.each do |filter|
-          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filtergit) }
+          @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter) }
         end
       }
       MQTT_ERR_SUCCESS
@@ -192,7 +193,7 @@ module PahoMqtt
     def check_topics(topics, filters)
       if topics.is_a?(String) && filters.is_a?(String)
       else
-        @logger.error("Topics or Wildcards are not found as String.") if logger?
+        @logger.error("Topics or Wildcards are not found as String.") if PahoMqtt.logger?
         raise ArgumentError
       end
     end
