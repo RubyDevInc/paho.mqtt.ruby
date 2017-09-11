@@ -193,10 +193,9 @@ describe PahoMqtt::Client do
         sleep 0.0001
       end
       expect(client.subscribed_topics).to eq(valid_topics)
-      client.unsubscribe(valid_topics[1])
       unsubscribed = false
       client.on_unsuback = lambda { |pck| unsubscribed = true }
-      client.unsubscribe(valid_topics[1])
+      client.unsubscribe(valid_topics.flatten[0])
       while !unsubscribed do
         sleep 0.0001
       end
