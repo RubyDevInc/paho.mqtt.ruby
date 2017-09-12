@@ -71,7 +71,6 @@ module PahoMqtt
       end
 
       if @port.nil?
-        @port
         if @ssl
           @port = DEFAULT_SSL_PORT
         else
