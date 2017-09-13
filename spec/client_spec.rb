@@ -345,7 +345,7 @@ describe PahoMqtt::Client do
       client.on_connack = lambda { |pck| connack = true; client.keep_alive = 15 }
       client.keep_alive = 0 # Make the client disconnect
       while !connack do
-        sleep 0.001
+        sleep 0.01
       end
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
     end

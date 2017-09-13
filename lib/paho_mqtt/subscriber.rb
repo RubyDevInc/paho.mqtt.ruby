@@ -87,7 +87,6 @@ module PahoMqtt
         raise PacketException
       end
 
-      print to_unsub
       @subscribed_mutex.synchronize {
         to_unsub.each do |filter|
           @subscribed_topics.delete_if { |topic| match_filter(topic.first, filter) }
