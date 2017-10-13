@@ -70,6 +70,10 @@ module PahoMqtt
         self.send("#{k}=", v)
       end
 
+      if @ssl
+        @ssl_context = OpenSSL::SSL::SSLContext.new
+      end
+
       if @port.nil?
         if @ssl
           @port = DEFAULT_SSL_PORT
@@ -92,7 +96,7 @@ module PahoMqtt
       @ssl ||= true
       @ssl_context = SSLHelper.config_ssl_context(cert_path, key_path, ca_path)
     end
-    
+
     def connect(host=@host, port=@port, keep_alive=@keep_alive, persistent=@persistent, blocking=@blocking)
       @persistent = persistent
       @blocking = blocking
@@ -102,7 +106,7 @@ module PahoMqtt
       @connection_state_mutex.synchronize {
         @connection_state = MQTT_CS_NEW
       }
-      @mqtt_thread.kill unless @mqtt_thread.nil? 
+      @mqtt_thread.kill unless @mqtt_thread.nil?
       init_connection
       @connection_helper.send_connect(session_params)
       begin
@@ -249,7 +253,7 @@ module PahoMqtt
     def remove_topic_callback(topic)
       @handler.clear_topic_callback(topic)
     end
-    
+
     def on_connack(&block)
       @handler.on_connack = block if block_given?
       @handler.on_connack
