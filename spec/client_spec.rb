@@ -31,7 +31,7 @@ describe PahoMqtt::Client do
         :client_id => "my_client1234",
         :username => 'Foo Bar',
         :password => 'barfoo',
-        :ssl => true,
+        :ssl => false,
         :will_topic => "my_will_topic",
         :will_payload => "Bye Bye",
         :will_qos => 1,
@@ -48,7 +48,7 @@ describe PahoMqtt::Client do
       expect(client.client_id).to eq("my_client1234") 
       expect(client.username).to eq('Foo Bar')
       expect(client.password).to eq('barfoo')
-      expect(client.ssl).to be true
+      expect(client.ssl).to be false
       expect(client.will_topic).to eq("my_will_topic")
       expect(client.will_payload).to eq("Bye Bye")    
       expect(client.will_qos).to eq(1)
@@ -56,6 +56,20 @@ describe PahoMqtt::Client do
       expect(client.keep_alive).to eq(20)
       expect(client.ack_timeout).to eq(3)
       expect(client.on_message.is_a?(Proc)).to be true
+      expect(client.ssl_context).to be nil
+    end
+
+    context "when ssl option is set to true" do
+      it "assigns ssl option" do
+        client = PahoMqtt::Client.new(ssl: true)
+        expect(client.ssl).to be true
+      end
+
+      it "creates new ssl context" do
+        allow(OpenSSL::SSL::SSLContext).to receive(:new).and_return(:new_ssl_context)
+        client = PahoMqtt::Client.new(ssl: true)
+        expect(client.ssl_context).to eq(:new_ssl_context)
+      end
     end
   end
   
