@@ -117,6 +117,51 @@ module PahoMqtt
     @logger.is_a?(Logger)
   end
 
+  def match_filter(topics, filters)
+    check_topics(topics, filters)
+    index = 0
+    rc = false
+    topic = topics.split('/')
+    filter = filters.split('/')
+    while index < [topic.length, filter.length].max do
+      if is_end?(topic[index], filter[index])
+        break
+      elsif is_wildcard?(filter[index])
+        rc = index == (filter.length - 1)
+        break
+      elsif keep_running?(filter[index], topic[index])
+        index = index + 1
+      else
+        break
+      end
+    end
+    is_matching?(rc, topic.length, filter.length, index)
+  end
+
+  def keep_running?(filter_part, topic_part)
+    filter_part == topic_part || filter_part == '+'
+  end
+
+  def is_wildcard?(filter_part)
+    filter_part == '#'
+  end
+
+  def is_end?(topic_part, filter_part)
+    topic_part.nil? || filter_part.nil?
+  end
+
+  def is_matching?(rc, topic_length, filter_length, index)
+    rc || index == [topic_length, filter_length].max
+  end
+
+  def check_topics(topics, filters)
+    if topics.is_a?(String) && filters.is_a?(String)
+    else
+      @logger.error("Topics or Wildcards are not found as String.") if logger?
+      raise ArgumentError
+    end
+  end
+
   class Exception < ::Exception
   end
 

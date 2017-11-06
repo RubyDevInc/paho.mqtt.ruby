@@ -143,6 +143,7 @@ describe PahoMqtt::Client do
   context "Already connected client" do
     let(:client) { PahoMqtt::Client.new(:host => 'localhost', :ack_timeout => 2) }
     let(:valid_topics) { Array({"/My_all_topic/#"=> 2, "My_private_topic" => 1}) }
+    let(:unsub_topics) { Array("My_private_topic/#")}
     let(:invalid_topics) { Array({"" => 1, "topic_invalid_qos" => 42}) }
     let(:publish_content) { Hash(:topic => "My_private_topic", :payload => "Hello World!", :qos => 1, :retain => false) }
     
@@ -254,26 +255,31 @@ describe PahoMqtt::Client do
     end
 
     it "Publish to a topic and verify the callback registered for a specific topic" do
-      message = false
       filter = false
-      client.on_message = proc { message = true }
       client.add_topic_callback("/My_all_topic/topic1") do
         filter = true
       end
-      expect(message).to be false
       expect(filter).to be false
       client.subscribe(valid_topics)
-      client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], publish_content[:qos])
-      while !message do
-        sleep 0.0001
-      end
-      expect(message).to be true
-      expect(filter).to be false
       client.publish("/My_all_topic/topic1", "Hello World", false, 1)
       while !filter do
         sleep 0.0001
       end
       expect(filter).to be true
+    end
+
+    it "Publish to topic and verify the callback registered for a wildcard" do
+      wildcard = false
+      client.add_topic_callback("/My_all_topic/+") do
+        wildcard = true
+      end
+      expect(wildcard).to be false
+      client.subscribe(valid_topics)
+      client.publish("/My_all_topic/topic1", "Hello World", false, 1)
+      while !wildcard do
+        sleep 0.0001
+      end
+      expect(wildcard).to be true
     end
 
     it "Publish to a subscribed topic where callback is removed" do
@@ -316,7 +322,7 @@ describe PahoMqtt::Client do
       end
       expect(puback).to be true
     end
-    
+
     it "Publish with qos 2 to subcribed topic and verfiy the on_pubrec, on_pubrel and on_pubcomp callback" do
       pubrec = false
       pubrel = false

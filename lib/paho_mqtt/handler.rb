@@ -141,7 +141,7 @@ module PahoMqtt
       qos = packet.qos
       if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
         @on_message.call(packet) unless @on_message.nil?
-        @registered_callback.assoc(packet.topic).last.call(packet) if @registered_callback.any? { |pair| pair.first == packet.topic}
+        check_callback(packet)
       end
     end
 
@@ -265,6 +265,18 @@ module PahoMqtt
         puts "Packet: #{packet.inspect}"
         PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}") if PahoMqtt.logger?
          raise PacketException
+      end
+    end
+
+    def check_callback(packet)
+      callbacks = []
+      @registered_callback.each do |reccord|
+        callbacks.push(reccord.last) if PahoMqtt.match_filter(packet.topic, reccord.first)
+      end
+      unless callbacks.empty?
+        callbacks.each do |callback|
+            callback.call(packet)
+        end
       end
     end
   end
