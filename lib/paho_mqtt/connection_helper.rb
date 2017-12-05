@@ -35,6 +35,7 @@ module PahoMqtt
     end
 
     def do_connect(reconnection=false)
+      @cs = MQTT_CS_NEW
       @handler.socket = @socket
       # Waiting a Connack packet for "ack_timeout" second from the remote
       connect_timeout = Time.now + @ack_timeout

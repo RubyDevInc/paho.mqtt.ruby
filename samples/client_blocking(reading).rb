@@ -1,11 +1,7 @@
 require 'paho-mqtt'
-require 'logger'
 
-file = File.open('paho.log', "a+")
-log = Logger.new(file)
-log.level = Logger::DEBUG
-
-client = PahoMqtt::Client.new({logger: log})
+client = PahoMqtt::Client.new()
+PahoMqtt.logger = 'paho.log'
 
 client.on_message do |pck|
   puts "New Message: #{pck.topic}\n>>> #{pck.payload}"

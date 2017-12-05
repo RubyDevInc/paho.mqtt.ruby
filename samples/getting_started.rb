@@ -2,7 +2,7 @@ require 'paho-mqtt'
 
 ### Create a simple client with default attributes
 client = PahoMqtt::Client.new
-
+PahoMqtt.logger = 'paho_mqtt'
 ### Register a callback on message event to display messages
 message_counter = 0
 client.on_message do |message|  

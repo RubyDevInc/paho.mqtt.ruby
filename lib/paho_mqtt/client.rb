@@ -111,18 +111,28 @@ module PahoMqtt
       @connection_helper.send_connect(session_params)
       begin
         @connection_state = @connection_helper.do_connect(reconnect?)
+        if connected?
+          build_pubsub
+          daemon_mode unless @blocking
+        end
       rescue LowVersionException
         downgrade_version
       end
-      build_pubsub
-      daemon_mode unless @blocking || !connected?
     end
 
     def daemon_mode
       @mqtt_thread = Thread.new do
         @reconnect_thread.kill unless @reconnect_thread.nil? || !@reconnect_thread.alive?
-        while connected? do
-          mqtt_loop
+        begin
+          while connected? do
+            mqtt_loop
+          end
+        rescue SystemCallError => e
+          if @persistent
+            reconnect()
+          else
+            raise e
+          end
         end
       end
     end
@@ -176,21 +186,20 @@ module PahoMqtt
       @subscriber.check_waiting_subscriber
     end
 
-    def reconnect(retry_time=RECONNECT_RETRY_TIME, retry_tempo=RECONNECT_RETRY_TEMPO)
+    def reconnect
       @reconnect_thread = Thread.new do
-        retry_time.times do
+        RECONNECT_RETRY_TIME.times do
           PahoMqtt.logger.debug("New reconnect atempt...") if PahoMqtt.logger?
           connect
           if connected?
             break
           else
-            sleep retry_tempo
+            sleep RECONNECT_RETRY_TIME
           end
         end
         unless connected?
           PahoMqtt.logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
           disconnect(false)
-          exit
         end
       end
     end
