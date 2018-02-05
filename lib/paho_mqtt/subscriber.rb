@@ -72,7 +72,7 @@ module PahoMqtt
       @subscribed_mutex.synchronize {
         @subscribed_topics.concat(adjust_qos)
       }
-      MQTT_ERR_SUCCESS
+      return adjust_qos
     end
 
     def remove_subscription(packet_id, to_unsub)
@@ -92,7 +92,7 @@ module PahoMqtt
           @subscribed_topics.delete_if { |topic| PahoMqtt.match_filter(topic.first, filter) }
         end
       }
-      MQTT_ERR_SUCCESS
+      return to_unsub
     end
     
     def send_subscribe(topics, new_id)
