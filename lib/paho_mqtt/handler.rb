@@ -123,7 +123,8 @@ module PahoMqtt
       max_qos = packet.return_codes
       id = packet.id
       topics = []
-      if @subscriber.add_subscription(max_qos, id, topics) == MQTT_ERR_SUCCESS
+      topics = @subscriber.add_subscription(max_qos, id, topics)
+      unless topics.empty?
         @on_suback.call(topics) unless @on_suback.nil?
       end
     end
@@ -131,7 +132,9 @@ module PahoMqtt
     def handle_unsuback(packet)
       id = packet.id
       topics = []
-      if @subscriber.remove_subscription(id, topics) == MQTT_ERR_SUCCESS
+      topics = @subscriber.remove_subscription(id, topics)
+      unless topcis.empty?
+        puts "PAHO TOPICS: #{topics}"
         @on_unsuback.call(topics) unless @on_unsuback.nil?
       end
     end

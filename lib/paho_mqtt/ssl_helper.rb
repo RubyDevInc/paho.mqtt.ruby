@@ -23,7 +23,7 @@ module PahoMqtt
       set_cert(cert_path, ssl_context)
       set_key(key_path, ssl_context)
       set_root_ca(ca_path, ssl_context)
-      ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER unless ca_path.nil?
+      #ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER unless ca_path.nil?
       ssl_context
     end
 
