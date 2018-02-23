@@ -134,7 +134,6 @@ module PahoMqtt
       topics = []
       topics = @subscriber.remove_subscription(id, topics)
       unless topics.empty?
-        puts "PAHO TOPICS: #{topics}"
         @on_unsuback.call(topics) unless @on_unsuback.nil?
       end
     end
