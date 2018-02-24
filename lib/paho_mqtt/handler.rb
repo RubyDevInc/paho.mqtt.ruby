@@ -18,7 +18,7 @@ module PahoMqtt
     attr_reader :registered_callback
     attr_accessor :last_ping_resp
     attr_accessor :clean_session
-    
+
     def initialize
       @registered_callback = []
       @last_ping_resp = -1
@@ -46,7 +46,7 @@ module PahoMqtt
           else
             handle_packet(packet)
             @last_ping_resp = Time.now
-          end          
+          end
         end
       end
     end
@@ -133,8 +133,7 @@ module PahoMqtt
       id = packet.id
       topics = []
       topics = @subscriber.remove_subscription(id, topics)
-      unless topcis.empty?
-        puts "PAHO TOPICS: #{topics}"
+      unless topics.empty?
         @on_unsuback.call(topics) unless @on_unsuback.nil?
       end
     end
@@ -157,7 +156,7 @@ module PahoMqtt
 
     def handle_pubrec(packet)
       id = packet.id
-      if @publisher.do_pubrec(id) == MQTT_ERR_SUCCESS      
+      if @publisher.do_pubrec(id) == MQTT_ERR_SUCCESS
         @on_pubrec.call(packet) unless @on_pubrec.nil?
       end
     end
