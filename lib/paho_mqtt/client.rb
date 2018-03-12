@@ -48,17 +48,17 @@ module PahoMqtt
     attr_reader :ssl_context
 
     def initialize(*args)
-      @last_ping_resp = Time.now
-      @last_packet_id = 0
-      @ssl_context = nil
-      @sender = nil
-      @handler = Handler.new
-      @connection_helper = nil
-      @connection_state = MQTT_CS_DISCONNECT
+      @last_ping_resp         = Time.now
+      @last_packet_id         = 0
+      @ssl_context            = nil
+      @sender                 = nil
+      @handler                = Handler.new
+      @connection_helper      = nil
+      @connection_state       = MQTT_CS_DISCONNECT
       @connection_state_mutex = Mutex.new
-      @mqtt_thread = nil
-      @reconnect_thread = nil
-      @id_mutex = Mutex.new
+      @mqtt_thread            = nil
+      @reconnect_thread       = nil
+      @id_mutex               = Mutex.new
 
       if args.last.is_a?(Hash)
         attr = args.pop
@@ -99,15 +99,17 @@ module PahoMqtt
 
     def connect(host=@host, port=@port, keep_alive=@keep_alive, persistent=@persistent, blocking=@blocking)
       @persistent = persistent
-      @blocking = blocking
-      @host = host
-      @port = port.to_i
+      @blocking   = blocking
+      @host       = host
+      @port       = port.to_i
       @keep_alive = keep_alive
       @connection_state_mutex.synchronize {
         @connection_state = MQTT_CS_NEW
       }
       @mqtt_thread.kill unless @mqtt_thread.nil?
+
       init_connection
+
       @connection_helper.send_connect(session_params)
       begin
         @connection_state = @connection_helper.do_connect(reconnect?)
@@ -189,7 +191,7 @@ module PahoMqtt
     def reconnect
       @reconnect_thread = Thread.new do
         RECONNECT_RETRY_TIME.times do
-          PahoMqtt.logger.debug("New reconnect atempt...") if PahoMqtt.logger?
+          PahoMqtt.logger.debug("New reconnect attempt...") if PahoMqtt.logger?
           connect
           if connected?
             break
@@ -198,7 +200,7 @@ module PahoMqtt
           end
         end
         unless connected?
-          PahoMqtt.logger.error("Reconnection atempt counter is over.(#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
+          PahoMqtt.logger.error("Reconnection attempt counter is over. (#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
           disconnect(false)
         end
       end
@@ -245,7 +247,7 @@ module PahoMqtt
         end
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
-        PahoMqtt.logger.error("Unsubscribe need at least one topics.") if PahoMqtt.logger?
+        PahoMqtt.logger.error("Unsubscribe need at least one topic.") if PahoMqtt.logger?
         disconnect(false)
         raise ProtocolViolation
       end
@@ -347,9 +349,9 @@ module PahoMqtt
     private
 
     def next_packet_id
-      @id_mutex.synchronize {
-        @last_packet_id = ( @last_packet_id || 0 ).next
-      }
+      @id_mutex.synchronize do
+        @last_packet_id = (@last_packet_id || 0).next
+      end
     end
 
     def downgrade_version
@@ -381,24 +383,26 @@ module PahoMqtt
 
     def init_connection
       unless reconnect?
-        @connection_helper = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
+        @connection_helper         = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
         @connection_helper.handler = @handler
-        @sender = @connection_helper.sender
+        @sender                    = @connection_helper.sender
       end
         @connection_helper.setup_connection
     end
 
     def session_params
-      {:version => @mqtt_version,
-       :clean_session => @clean_session,
-       :keep_alive => @keep_alive,
-       :client_id => @client_id,
-       :username => @username,
-       :password => @password,
-       :will_topic => @will_topic,
-       :will_payload => @will_payload,
-       :will_qos => @will_qos,
-       :will_retain => @will_retain}
+      {
+        :version       => @mqtt_version,
+        :clean_session => @clean_session,
+        :keep_alive    => @keep_alive,
+        :client_id     => @client_id,
+        :username      => @username,
+        :password      => @password,
+        :will_topic    => @will_topic,
+        :will_payload  => @will_payload,
+        :will_qos      => @will_qos,
+        :will_retain   => @will_retain
+     }
     end
 
     def check_persistence

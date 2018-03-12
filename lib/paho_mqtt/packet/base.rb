@@ -36,8 +36,8 @@ module PahoMqtt
 
       # Default attribute values
       ATTR_DEFAULTS = {
-        :version => '3.1.0',
-        :id => 0,
+        :version     => '3.1.0',
+        :id          => 0,
         :body_length => nil
       }
 
@@ -59,22 +59,22 @@ module PahoMqtt
             body_length += ((digit & 0x7F) * multiplier)
             multiplier *= 0x80
             pos += 1
-          end while ((digit & 0x80) != 0x00) and pos <= 4
+          end while ((digit & 0x80) != 0x00) && pos <= 4
 
           # Store the expected body length in the packet
           packet.instance_variable_set('@body_length', body_length)
 
           # Read in the packet body
-          packet.parse_body( socket.read(body_length) )
+          packet.parse_body(socket.read(body_length))
         end
-        return packet
+        packet
       end
 
       # Parse buffer into new packet object
       def self.parse(buffer)
         packet = parse_header(buffer)
         packet.parse_body(buffer)
-        return packet
+        packet
       end
 
       # Parse the header and create a new packet object of the correct type
@@ -102,7 +102,7 @@ module PahoMqtt
           body_length += ((digit & 0x7F) * multiplier)
           multiplier *= 0x80
           pos += 1
-        end while ((digit & 0x80) != 0x00) and pos <= 4
+        end while ((digit & 0x80) != 0x00) && pos <= 4
 
         # Store the expected body length in the packet
         packet.instance_variable_set('@body_length', body_length)
@@ -110,7 +110,7 @@ module PahoMqtt
         # Delete the fixed header from the raw packet passed in
         buffer.slice!(0...pos)
 
-        return packet
+        packet
       end
 
       # Create a new packet object from the first byte of a MQTT packet
@@ -155,7 +155,7 @@ module PahoMqtt
         if index.nil?
           raise "Invalid packet type: #{self.class}"
         end
-        return index
+        index
       end
 
       # Get the name of the packet type as a string in capitals
@@ -243,7 +243,7 @@ module PahoMqtt
 
       # Encode an array of bits and return them
       def encode_bits(bits)
-        [bits.map{|b| b ? '1' : '0'}.join].pack('b*')
+        [bits.map { |b| b ? '1' : '0' }.join].pack('b*')
       end
 
       # Encode a 16-bit unsigned integer and return it
@@ -274,7 +274,7 @@ module PahoMqtt
 
       # Remove 8 bits from the front of buffer
       def shift_bits(buffer)
-        buffer.slice!(0...1).unpack('b8').first.split('').map {|b| b == '1'}
+        buffer.slice!(0...1).unpack('b8').first.split('').map { |b| b == '1' }
       end
 
       # Remove n bytes from the front of buffer

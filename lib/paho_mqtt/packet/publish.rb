@@ -37,7 +37,7 @@ module PahoMqtt
 
       # Default attribute values
       ATTR_DEFAULTS = {
-        :topic => nil,
+        :topic   => nil,
         :payload => ''
       }
 
@@ -102,8 +102,8 @@ module PahoMqtt
       # Parse the body (variable header and payload) of a Publish packet
       def parse_body(buffer)
         super(buffer)
-        @topic = shift_string(buffer)
-        @id = shift_short(buffer) unless qos == 0
+        @topic   = shift_string(buffer)
+        @id      = shift_short(buffer) unless qos == 0
         @payload = buffer
       end
 

@@ -55,15 +55,15 @@ module PahoMqtt
 
       # Default attribute values
       ATTR_DEFAULTS = {
-        :client_id => nil,
+        :client_id     => nil,
         :clean_session => true,
-        :keep_alive => 15,
-        :will_topic => nil,
-        :will_qos => 0,
-        :will_retain => false,
-        :will_payload => '',
-        :username => nil,
-        :password => nil,
+        :keep_alive    => 15,
+        :will_topic    => nil,
+        :will_qos      => 0,
+        :will_retain   => false,
+        :will_payload  => '',
+        :username      => nil,
+        :password      => nil,
       }
 
       # Create a new Client Connect packet

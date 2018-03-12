@@ -18,13 +18,13 @@ module PahoMqtt
     attr_reader :subscribed_topics
 
     def initialize(sender)
-      @waiting_suback = []
-      @waiting_unsuback = []
-      @subscribed_mutex = Mutex.new
+      @waiting_suback    = []
+      @waiting_unsuback  = []
+      @subscribed_mutex  = Mutex.new
       @subscribed_topics = []
-      @suback_mutex = Mutex.new
-      @unsuback_mutex = Mutex.new
-      @sender = sender
+      @suback_mutex      = Mutex.new
+      @unsuback_mutex    = Mutex.new
+      @sender            = sender
     end
 
     def sender=(sender)
@@ -34,24 +34,24 @@ module PahoMqtt
     def config_subscription(new_id)
       unless @subscribed_topics == [] || @subscribed_topics.nil?
         packet = PahoMqtt::Packet::Subscribe.new(
-          :id => new_id,
+          :id     => new_id,
           :topics => @subscribed_topics
         )
-        @subscribed_mutex.synchronize {
+        @subscribed_mutex.synchronize do
           @subscribed_topics = []
-        }
-        @suback_mutex.synchronize {
-          @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
-        }
+        end
+        @suback_mutex.synchronize do
+          @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
+        end
         @sender.send_packet(packet)
       end
       MQTT_ERR_SUCCESS
     end
 
     def add_subscription(max_qos, packet_id, adjust_qos)
-      @suback_mutex.synchronize {
+      @suback_mutex.synchronize do
         adjust_qos, @waiting_suback = @waiting_suback.partition { |pck| pck[:id] == packet_id }
-      }
+      end
       if adjust_qos.length == 1
         adjust_qos = adjust_qos.first[:packet].topics
         adjust_qos.each do |t|
@@ -61,7 +61,7 @@ module PahoMqtt
             adjust_qos.delete(t)
           else
 
-            @logger.error("The qos value is invalid in subscribe.") if PahoMqtt.logger?
+            @logger.error("The QoS value is invalid in subscribe.") if PahoMqtt.logger?
             raise PacketException
           end
         end
@@ -69,17 +69,17 @@ module PahoMqtt
         @logger.error("The packet id is invalid, already used.") if PahoMqtt.logger?
         raise PacketException
       end
-      @subscribed_mutex.synchronize {
+      @subscribed_mutex.synchronize do
         @subscribed_topics.concat(adjust_qos)
-      }
+      end
       return adjust_qos
     end
 
     def remove_subscription(packet_id, to_unsub)
-      @unsuback_mutex.synchronize {
+      @unsuback_mutex.synchronize do
         to_unsub, @waiting_unsuback = @waiting_unsuback.partition { |pck| pck[:id] == packet_id }
-      }
-      
+      end
+
       if to_unsub.length == 1
         to_unsub = to_unsub.first[:packet].topics
       else
@@ -87,24 +87,24 @@ module PahoMqtt
         raise PacketException
       end
 
-      @subscribed_mutex.synchronize {
+      @subscribed_mutex.synchronize do
         to_unsub.each do |filter|
           @subscribed_topics.delete_if { |topic| PahoMqtt.match_filter(topic.first, filter) }
         end
-      }
+      end
       return to_unsub
     end
-    
+
     def send_subscribe(topics, new_id)
       unless valid_topics?(topics) == MQTT_ERR_FAIL
         packet = PahoMqtt::Packet::Subscribe.new(
-          :id => new_id,
+          :id     => new_id,
           :topics => topics
-        )        
+        )
         @sender.append_to_writing(packet)
-        @suback_mutex.synchronize {
-          @waiting_suback.push({ :id => new_id, :packet => packet, :timestamp => Time.now })
-        }
+        @suback_mutex.synchronize do
+          @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
+        end
         MQTT_ERR_SUCCESS
       else
         raise ProtocolViolation
@@ -114,14 +114,14 @@ module PahoMqtt
     def send_unsubscribe(topics, new_id)
       unless valid_topics?(topics) == MQTT_ERR_FAIL
         packet = PahoMqtt::Packet::Unsubscribe.new(
-          :id => new_id,
+          :id     => new_id,
           :topics => topics
         )
-        
+
         @sender.append_to_writing(packet)
-        @unsuback_mutex.synchronize {
+        @unsuback_mutex.synchronize do
           @waiting_unsuback.push({:id => new_id, :packet => packet, :timestamp => Time.now})
-        }
+        end
         MQTT_ERR_SUCCESS
       else
         raise ProtocolViolation

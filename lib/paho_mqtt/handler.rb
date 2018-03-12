@@ -21,9 +21,9 @@ module PahoMqtt
 
     def initialize
       @registered_callback = []
-      @last_ping_resp = -1
-      @publisher = nil
-      @subscriber = nil
+      @last_ping_resp      = -1
+      @publisher           = nil
+      @subscriber          = nil
     end
 
     def config_pubsub(publisher, subscriber)
@@ -52,7 +52,7 @@ module PahoMqtt
     end
 
     def handle_packet(packet)
-      PahoMqtt.logger.info("New packet #{packet.class} recieved.") if PahoMqtt.logger?
+      PahoMqtt.logger.info("New packet #{packet.class} received.") if PahoMqtt.logger?
       type = packet_type(packet)
       self.send("handle_#{type}", packet)
     end
@@ -76,13 +76,13 @@ module PahoMqtt
         PahoMqtt.logger.error("The topics where the callback is trying to be unregistered have been found nil.") if PahoMqtt.logger?
         raise ArgumentError
       end
-      @registered_callback.delete_if {|pair| pair.first == topic}
+      @registered_callback.delete_if { |pair| pair.first == topic }
       MQTT_ERR_SUCCESS
     end
 
     def handle_connack(packet)
       if packet.return_code == 0x00
-        PahoMqtt.logger.debug("Connack receive and connection accepted.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("CONNACK receive and connection accepted.") if PahoMqtt.logger?
         handle_connack_accepted(packet.session_present)
       else
         handle_connack_error(packet.return_code)
@@ -99,7 +99,7 @@ module PahoMqtt
 
     def new_session?(session_flag)
       if !@clean_session && !session_flag
-        PahoMqtt.logger.debug("New session created for the client") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("New session created for the client.") if PahoMqtt.logger?
       end
     end
 
@@ -182,7 +182,7 @@ module PahoMqtt
         PahoMqtt.logger.warm(CONNACK_ERRO_MESSAGE[return_code])
         MQTT_CS_DISCONNECTED
       else
-        PahoMqtt.logger("Unknown return code for CONNACK packet: #{return_code}")
+        PahoMqtt.logger("Unknown return code for CONNACK packet: #{return_code}.")
         raise PacketException
       end
     end
@@ -265,7 +265,7 @@ module PahoMqtt
         type.to_s.split('::').last.downcase
       else
         puts "Packet: #{packet.inspect}"
-        PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}") if PahoMqtt.logger?
+        PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}.") if PahoMqtt.logger?
          raise PacketException
       end
     end
