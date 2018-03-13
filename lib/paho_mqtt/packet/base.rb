@@ -141,7 +141,7 @@ module PahoMqtt
       # Set packet attributes from a hash of attribute names and values
       def update_attributes(attr={})
         attr.each_pair do |k,v|
-          if v.is_a?(Array) or v.is_a?(Hash)
+          if v.is_a?(Array) || v.is_a?(Hash)
             send("#{k}=", v.dup)
           else
             send("#{k}=", v)

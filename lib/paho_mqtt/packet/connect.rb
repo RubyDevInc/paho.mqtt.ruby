@@ -70,7 +70,7 @@ module PahoMqtt
       def initialize(args={})
         super(ATTR_DEFAULTS.merge(args))
 
-        if version == '3.1.0' or version == '3.1'
+        if version == '3.1.0' || version == '3.1'
           self.protocol_name ||= 'MQIsdp'
           self.protocol_level ||= 0x03
         elsif version == '3.1.1'
@@ -106,7 +106,7 @@ module PahoMqtt
 
       def check_version
         if @version == '3.1.0'
-          if @client_id.nil? or @client_id.bytesize < 1
+          if @client_id.nil? || @client_id.bytesize < 1
             raise "Client identifier too short while serialising packet"
           elsif @client_id.bytesize > 23
             raise "Client identifier too long when serialising packet"
@@ -131,9 +131,9 @@ module PahoMqtt
         super(buffer)
         @protocol_name = shift_string(buffer)
         @protocol_level = shift_byte(buffer).to_i
-        if @protocol_name == 'MQIsdp' and @protocol_level == 3
+        if @protocol_name == 'MQIsdp' && @protocol_level == 3
           @version = '3.1.0'
-        elsif @protocol_name == 'MQTT' and @protocol_level == 4
+        elsif @protocol_name == 'MQTT' && @protocol_level == 4
           @version = '3.1.1'
         else
           raise "Unsupported protocol: #{@protocol_name}/#{@protocol_level}"
@@ -155,10 +155,10 @@ module PahoMqtt
           # The MQTT v3.1 specification says that the payload is a UTF-8 string
           @will_payload = shift_string(buffer)
         end
-        if ((@connect_flags & 0x80) >> 7) == 0x01 and buffer.bytesize > 0
+        if ((@connect_flags & 0x80) >> 7) == 0x01 && buffer.bytesize > 0
           @username = shift_string(buffer)
         end
-        if ((@connect_flags & 0x40) >> 6) == 0x01 and buffer.bytesize > 0
+        if ((@connect_flags & 0x40) >> 6) == 0x01 && buffer.bytesize > 0
           @password = shift_string(buffer)
         end
       end
