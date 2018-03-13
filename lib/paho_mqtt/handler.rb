@@ -121,9 +121,9 @@ module PahoMqtt
 
     def handle_suback(packet)
       max_qos = packet.return_codes
-      id = packet.id
-      topics = []
-      topics = @subscriber.add_subscription(max_qos, id, topics)
+      id      = packet.id
+      topics  = []
+      topics  = @subscriber.add_subscription(max_qos, id, topics)
       unless topics.empty?
         @on_suback.call(topics) unless @on_suback.nil?
       end
@@ -277,7 +277,7 @@ module PahoMqtt
       end
       unless callbacks.empty?
         callbacks.each do |callback|
-            callback.call(packet)
+          callback.call(packet)
         end
       end
     end

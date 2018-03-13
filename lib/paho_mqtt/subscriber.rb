@@ -120,7 +120,7 @@ module PahoMqtt
 
         @sender.append_to_writing(packet)
         @unsuback_mutex.synchronize do
-          @waiting_unsuback.push({:id => new_id, :packet => packet, :timestamp => Time.now})
+          @waiting_unsuback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
       else

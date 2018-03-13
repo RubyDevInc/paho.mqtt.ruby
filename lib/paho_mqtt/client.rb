@@ -103,9 +103,9 @@ module PahoMqtt
       @host       = host
       @port       = port.to_i
       @keep_alive = keep_alive
-      @connection_state_mutex.synchronize {
+      @connection_state_mutex.synchronize do
         @connection_state = MQTT_CS_NEW
-      }
+      end
       @mqtt_thread.kill unless @mqtt_thread.nil?
 
       init_connection
@@ -131,7 +131,7 @@ module PahoMqtt
           end
         rescue SystemCallError => e
           if @persistent
-            reconnect()
+            reconnect
           else
             raise e
           end
@@ -209,9 +209,9 @@ module PahoMqtt
     def disconnect(explicit=true)
       @last_packet_id = 0 if explicit
       @connection_helper.do_disconnect(@publisher, explicit, @mqtt_thread)
-      @connection_state_mutex.synchronize {
+      @connection_state_mutex.synchronize do
         @connection_state = MQTT_CS_DISCONNECT
-      }
+      end
       MQTT_ERR_SUCCESS
     end
 
