@@ -41,14 +41,16 @@ module PahoMqtt
         elsif value.is_a?(Integer)
           @return_codes = [value]
         else
-          raise "return_codes should be an integer or an array of return codes"
+          raise PahoMqtt::PacketFormatException.new(
+                  "return_codes should be an integer or an array of return codes")
         end
       end
 
       # Get serialisation of packet's body
       def encode_body
         if @return_codes.empty?
-          raise "No granted QoS given when serialising packet"
+          raise PahoMqtt::PacketFormatException.new(
+                  "No granted QoS given when serialising packet")
         end
         body = encode_short(@id)
         return_codes.each { |qos| body += encode_bytes(qos) }

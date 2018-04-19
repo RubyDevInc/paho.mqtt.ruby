@@ -251,7 +251,7 @@ describe PahoMqtt::Client do
     it "Publish a packet to an invalid topic" do
       expect {
         client.publish(publish_content[:topic], publish_content[:payload], publish_content[:retain], 42)
-      }.to raise_error(RuntimeError, /Invalid QoS value/)
+      }.to raise_error(PahoMqtt::PacketFormatException, /Invalid QoS value/)
     end
 
     it "Publish to a topic and verify the callback registered for a specific topic" do

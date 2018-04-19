@@ -80,7 +80,8 @@ module PahoMqtt
       def qos=(arg)
         @qos = arg.to_i
         if @qos < 0 || @qos > 2
-          raise "Invalid QoS value: #{@qos}"
+          raise PahoMqtt::PacketFormatException.new(
+                  "Invalid QoS value: #{@qos}")
         else
           @flags[1] = (arg & 0x01 == 0x01)
           @flags[2] = (arg & 0x02 == 0x02)
@@ -91,7 +92,8 @@ module PahoMqtt
       def encode_body
         body = ''
         if @topic.nil? || @topic.to_s.empty?
-          raise "Invalid topic name when serialising packet"
+          raise PahoMqtt::PacketFormatException.new(
+                  "Invalid topic name when serialising packet")
         end
         body += encode_string(@topic)
         body += encode_short(@id) unless qos == 0
@@ -111,10 +113,12 @@ module PahoMqtt
       # @private
       def validate_flags
         if qos == 3
-          raise "Invalid packet: QoS value of 3 is not allowed"
+          raise PahoMqtt::PacketFormatException.new(
+                  "Invalid packet: QoS value of 3 is not allowed")
         end
         if qos == 0 && duplicate
-          raise "Invalid packet: DUP cannot be set for QoS 0"
+          raise PahoMqtt::PacketFormatException.new(
+                  "Invalid packet: DUP cannot be set for QoS 0")
         end
       end
 
