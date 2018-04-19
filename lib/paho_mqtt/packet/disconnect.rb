@@ -30,7 +30,7 @@ module PahoMqtt
         super(buffer)
         unless buffer.empty?
           raise PacketFormatException.new(
-                 "Extra bytes at end of Disconnect packet")
+                  "Extra bytes at the end of Disconnect packet")
         end
       end
     end
