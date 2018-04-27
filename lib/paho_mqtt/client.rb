@@ -196,7 +196,7 @@ module PahoMqtt
           if connected?
             break
           else
-            sleep RECONNECT_RETRY_TIME
+            sleep RECONNECT_RETRY_TEMPO
           end
         end
         unless connected?
