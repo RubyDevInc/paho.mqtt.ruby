@@ -27,8 +27,6 @@ module PahoMqtt
   DEFAULT_PORT          = 1883
   SELECT_TIMEOUT        = 0
   LOOP_TEMPO            = 0.005
-  RECONNECT_RETRY_TIME  = 3
-  RECONNECT_RETRY_TEMPO = 5
 
   # MAX size of queue
   MAX_READ    = 10

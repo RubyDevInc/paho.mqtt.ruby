@@ -27,6 +27,8 @@ module PahoMqtt
     attr_accessor :mqtt_version
     attr_accessor :clean_session
     attr_accessor :persistent
+    attr_accessor :reconnect_limit
+    attr_accessor :reconnect_delay
     attr_accessor :blocking
     attr_accessor :client_id
     attr_accessor :username
@@ -59,6 +61,8 @@ module PahoMqtt
       @mqtt_thread            = nil
       @reconnect_thread       = nil
       @id_mutex               = Mutex.new
+      @reconnect_limit        = 3
+      @reconnect_delay        = 5
 
       if args.last.is_a?(Hash)
         attr = args.pop
@@ -190,13 +194,15 @@ module PahoMqtt
 
     def reconnect
       @reconnect_thread = Thread.new do
-        RECONNECT_RETRY_TIME.times do
+        counter = 0
+        while (@reconnect_limit >= counter || @reconnect_limit == -1) do
+          counter += 1
           PahoMqtt.logger.debug("New reconnect attempt...") if PahoMqtt.logger?
           connect
           if connected?
             break
           else
-            sleep RECONNECT_RETRY_TIME
+            sleep @reconnect_delay
           end
         end
         unless connected?
