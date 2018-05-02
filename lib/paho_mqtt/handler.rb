@@ -178,8 +178,8 @@ module PahoMqtt
     def handle_connack_error(return_code)
       if return_code == 0x01
         raise LowVersionException
-      elsif CONNACK_ERROR_MESSAGE.has_key(return_code.to_sym)
-        PahoMqtt.logger.warm(CONNACK_ERRO_MESSAGE[return_code])
+      elsif CONNACK_ERROR_MESSAGE.has_key?(return_code)
+        PahoMqtt.logger.warm(CONNACK_ERROR_MESSAGE[return_code])
         MQTT_CS_DISCONNECTED
       else
         PahoMqtt.logger("Unknown return code for CONNACK packet: #{return_code}.")
