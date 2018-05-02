@@ -57,6 +57,7 @@ module PahoMqtt
           "Connection accepted"
         when 0x01
           "Connection refused: unacceptable protocol version"
+          raise LowVersionException
         when 0x02
           "Connection refused: client identifier rejected"
         when 0x03
@@ -67,6 +68,7 @@ module PahoMqtt
           "Connection refused: not authorised"
         else
           "Connection refused: error code #{return_code}"
+          raise PacketException
         end
       end
 

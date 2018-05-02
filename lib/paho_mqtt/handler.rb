@@ -82,10 +82,11 @@ module PahoMqtt
 
     def handle_connack(packet)
       if packet.return_code == 0x00
-        PahoMqtt.logger.debug("CONNACK receive and connection accepted.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug(packet.return_msg) if PahoMqtt.logger?
         handle_connack_accepted(packet.session_present)
       else
-        handle_connack_error(packet.return_code)
+        PahoMqtt.logger.warm(packet.return_msg)
+        MQTT_CS_DISCONNECTED
       end
       @on_connack.call(packet) unless @on_connack.nil?
       MQTT_CS_CONNECTED
@@ -172,18 +173,6 @@ module PahoMqtt
       id = packet.id
       if @publisher.do_pubcomp(id) == MQTT_ERR_SUCCESS
         @on_pubcomp.call(packet) unless @on_pubcomp.nil?
-      end
-    end
-
-    def handle_connack_error(return_code)
-      if return_code == 0x01
-        raise LowVersionException
-      elsif CONNACK_ERROR_MESSAGE.has_key?(return_code)
-        PahoMqtt.logger.warm(CONNACK_ERROR_MESSAGE[return_code])
-        MQTT_CS_DISCONNECTED
-      else
-        PahoMqtt.logger("Unknown return code for CONNACK packet: #{return_code}.")
-        raise PacketException
       end
     end
 
