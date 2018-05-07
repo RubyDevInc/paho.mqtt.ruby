@@ -3,8 +3,8 @@ $:.unshift(File.dirname(__FILE__))
 require 'spec_helper'
 
 describe PahoMqtt::Packet::Connack do
-  context "Create simple connack package" do
-    it "Successfully create a simple connack package" do
+  context "Create simple connack packet" do
+    it "Successfully create a simple connack packet" do
       packet = PahoMqtt::Packet::Base.create_from_header(0x20)
       expect(packet.inspect).to eq ("#<PahoMqtt::Packet::Connack: 0x00>")
       expect(packet.flags).to eq ([false, false, false, false])
