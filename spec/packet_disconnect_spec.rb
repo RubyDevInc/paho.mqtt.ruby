@@ -14,7 +14,7 @@ describe PahoMqtt::Packet::Disconnect do
       it "Fail for payload in disconnect packet" do
         packet = PahoMqtt::Packet::Disconnect.new
         packet.body_length = 1
-        expect { packet.parse_body("\x00") }.to raise_error(PahoMqtt::PacketFormatException, "Extra bytes at end of Disconnect packet")
+        expect { packet.parse_body("\x00") }.to raise_error(PahoMqtt::PacketFormatException, "Extra bytes at the end of Disconnect packet")
       end
     end
   end
