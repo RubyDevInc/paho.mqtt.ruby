@@ -14,12 +14,12 @@
 
 require "paho_mqtt/version"
 require "paho_mqtt/client"
+require "paho_mqtt/exception"
 require "paho_mqtt/packet"
 require 'logger'
 
 module PahoMqtt
   extend self
-
   attr_accessor :logger
 
   # Default connection setup
@@ -161,23 +161,5 @@ module PahoMqtt
       @logger.error("Topics or Wildcards are not found as String.") if logger?
       raise ArgumentError
     end
-  end
-
-  class Exception < ::Exception
-  end
-
-  class ProtocolViolation < PahoMqtt::Exception
-  end
-
-  class WritingException < PahoMqtt::Exception
-  end
-
-  class ReadingException < PahoMqtt::Exception
-  end
-
-  class PacketException < PahoMqtt::Exception
-  end
-
-  class LowVersionException < PahoMqtt::Exception
   end
 end

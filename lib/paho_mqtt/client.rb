@@ -355,12 +355,12 @@ module PahoMqtt
     end
 
     def downgrade_version
-      PahoMqtt.logger.debug("Unable to connect to the server with the version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
+      PahoMqtt.logger.debug("Connection refused: unacceptable protocol version #{@mqtt_version}, trying 3.1") if PahoMqtt.logger?
       if @mqtt_version != "3.1"
         @mqtt_version = "3.1"
         connect(@host, @port, @keep_alive)
       else
-        raise "Unsupported MQTT version"
+        raise ProtocolVersionException.new("Unsupported MQTT version")
       end
     end
 

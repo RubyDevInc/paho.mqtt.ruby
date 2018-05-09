@@ -27,7 +27,7 @@ module PahoMqtt
       attr_accessor :return_code
 
       # Default attribute values
-      ATTR_DEFAULTS = {:return_code => 0x00}
+      ATTR_DEFAULTS = { :return_code => 0x00 }
 
       # Create a new Client Connect packet
       def initialize(args={})
@@ -56,7 +56,7 @@ module PahoMqtt
         when 0x00
           "Connection accepted"
         when 0x01
-          "Connection refused: unacceptable protocol version"
+          raise LowVersionException
         when 0x02
           "Connection refused: client identifier rejected"
         when 0x03
@@ -83,11 +83,13 @@ module PahoMqtt
         super(buffer)
         @connack_flags = shift_bits(buffer)
         unless @connack_flags[1, 7] == [false, false, false, false, false, false, false]
-          raise "Invalid flags in Connack variable header"
+          raise PacketFormatException.new(
+                  "Invalid flags in Connack variable header")
         end
         @return_code = shift_byte(buffer)
         unless buffer.empty?
-          raise "Extra bytes at end of Connect Acknowledgment packet"
+          raise PacketFormatException.new(
+                  "Extra bytes at end of Connect Acknowledgment packet")
         end
       end
 
