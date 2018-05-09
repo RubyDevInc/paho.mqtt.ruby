@@ -62,12 +62,12 @@ module PahoMqtt
           else
 
             PahoMqtt.logger.error("The QoS value is invalid in subscribe.") if PahoMqtt.logger?
-            raise PacketException
+            raise PacketException.new('Invalid suback QoS value')
           end
         end
       else
         PahoMqtt.logger.error("The packet id is invalid, already used.") if PahoMqtt.logger?
-        raise PacketException
+        raise PacketException.new("Invalid suback packet id: #{packet_id}")
       end
       @subscribed_mutex.synchronize do
         @subscribed_topics.concat(adjust_qos)
@@ -84,7 +84,7 @@ module PahoMqtt
         to_unsub = to_unsub.first[:packet].topics
       else
         PahoMqtt.logger.error("The packet id is invalid, already used.") if PahoMqtt.logger?
-        raise PacketException
+        raise PacketException.new("Invalid unsuback packet id: #{packet_id}")
       end
 
       @subscribed_mutex.synchronize do

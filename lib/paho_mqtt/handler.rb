@@ -255,7 +255,7 @@ module PahoMqtt
       else
         puts "Packet: #{packet.inspect}"
         PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}.") if PahoMqtt.logger?
-         raise PacketException
+         raise PacketException.new('Invalid packet type id')
       end
     end
 
