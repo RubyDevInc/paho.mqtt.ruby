@@ -206,7 +206,7 @@ module PahoMqtt
           end
         end
         unless connected?
-          PahoMqtt.logger.error("Reconnection attempt counter is over. (#{RECONNECT_RETRY_TIME} times)") if PahoMqtt.logger?
+          PahoMqtt.logger.error("Reconnection attempt counter is over. (#{@reconnect_limit} times)") if PahoMqtt.logger?
           disconnect(false)
         end
       end
@@ -384,7 +384,7 @@ module PahoMqtt
         @publisher.config_all_message_queue
       end
       @handler.config_pubsub(@publisher, @subscriber)
-      @sender.flush_waiting_packet(true)
+      @sender.flush_waiting_packet(false)
     end
 
     def init_connection

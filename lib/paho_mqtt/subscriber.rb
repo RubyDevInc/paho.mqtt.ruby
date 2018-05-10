@@ -60,7 +60,6 @@ module PahoMqtt
           elsif max_qos[0] == 128
             adjust_qos.delete(t)
           else
-
             PahoMqtt.logger.error("The QoS value is invalid in subscribe.") if PahoMqtt.logger?
             raise PacketException.new('Invalid suback QoS value')
           end
