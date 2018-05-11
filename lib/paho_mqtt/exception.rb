@@ -40,4 +40,22 @@ module PahoMqtt
 
   class LowVersionException < Exception
   end
+
+  class FullQueuePubackException < Exception
+  end
+
+  class FullQueuePubrecException < Exception
+  end
+
+  class FullQueuePubrelException < Exception
+  end
+
+  class FullQueuePubcompException < Exception
+  end
+
+  class FullQueueSubackException < Exception
+  end
+
+  class FullQueueUnsubackException < Exception
+  end
 end

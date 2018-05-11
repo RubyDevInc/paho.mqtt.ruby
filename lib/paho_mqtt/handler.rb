@@ -140,11 +140,15 @@ module PahoMqtt
     end
 
     def handle_publish(packet)
-      id = packet.id
-      qos = packet.qos
-      if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
-        @on_message.call(packet) unless @on_message.nil?
-        check_callback(packet)
+      begin
+        id = packet.id
+        qos = packet.qos
+        if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
+          @on_message.call(packet) unless @on_message.nil?
+          check_callback(packet)
+        end
+      rescue FullQueuePubrelException
+        PahoMqtt.logger.error('PUBREL queue is full, could not acknowledge qos=2') if PahoMqtt.logger?
       end
     end
 
@@ -170,9 +174,13 @@ module PahoMqtt
     end
 
     def handle_pubcomp(packet)
-      id = packet.id
+      begin
+        id = packet.id
       if @publisher.do_pubcomp(id) == MQTT_ERR_SUCCESS
         @on_pubcomp.call(packet) unless @on_pubcomp.nil?
+      end
+      rescue FullQueuePubcompcException
+        PahoMqtt.logger.error('PUBCOMP queue is full, could not acknowledge qos=2') if PahoMqtt.logger?
       end
     end
 
@@ -253,7 +261,6 @@ module PahoMqtt
       if PahoMqtt::PACKET_TYPES[3..13].include?(type)
         type.to_s.split('::').last.downcase
       else
-        puts "Packet: #{packet.inspect}"
         PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}.") if PahoMqtt.logger?
          raise PacketException.new('Invalid packet type id')
       end

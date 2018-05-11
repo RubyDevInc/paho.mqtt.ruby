@@ -113,7 +113,6 @@ module PahoMqtt
       @mqtt_thread.kill unless @mqtt_thread.nil?
 
       init_connection
-
       @connection_helper.send_connect(session_params)
       begin
         @connection_state = @connection_helper.do_connect(reconnect?)
@@ -222,13 +221,19 @@ module PahoMqtt
     end
 
     def publish(topic, payload="", retain=false, qos=0)
-      if topic == "" || !topic.is_a?(String)
-        PahoMqtt.logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
-        raise ArgumentError
+      begin
+        if topic == "" || !topic.is_a?(String)
+          PahoMqtt.logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
+          raise ArgumentError
+        end
+        id = next_packet_id
+        @publisher.send_publish(topic, payload, retain, qos, id)
+        MQTT_ERR_SUCCESS
+      rescue FullQueuePubackException
+        PahoMqtt.logger.error('PUBACK queue is full, could not send with qos=!') if PahoMqtt.logger?
+      rescue FullQueuePubrecException
+        PahoMqtt.logger.error('PUBREC queue is full, could not send with qos=2') if PahoMqtt.logger?
       end
-      id = next_packet_id
-      @publisher.send_publish(topic, payload, retain, qos, id)
-      MQTT_ERR_SUCCESS
     end
 
     def subscribe(*topics)
@@ -243,6 +248,8 @@ module PahoMqtt
         disconnect(false)
         raise ProtocolViolation
       end
+    rescue FullQueueSubackException
+      PahoMqtt.logger.error('SUBACK queue is full, could not send subscribe') if PahoMqtt.logger?
     end
 
     def unsubscribe(*topics)
@@ -257,6 +264,8 @@ module PahoMqtt
         disconnect(false)
         raise ProtocolViolation
       end
+    rescue FullQueueUnsubackException
+      PahoMqtt.logger.error('UNSUBACK queue is full, could not send unbsubscribe') if PahoMqtt.logger?
     end
 
     def ping_host
@@ -381,10 +390,10 @@ module PahoMqtt
         @publisher = Publisher.new(@sender)
       else
         @publisher.sender = @sender
+        @sender.flush_waiting_packet
         @publisher.config_all_message_queue
       end
       @handler.config_pubsub(@publisher, @subscriber)
-      @sender.flush_waiting_packet(false)
     end
 
     def init_connection
@@ -393,7 +402,7 @@ module PahoMqtt
         @connection_helper.handler = @handler
         @sender                    = @connection_helper.sender
       end
-        @connection_helper.setup_connection
+      @connection_helper.setup_connection
     end
 
     def session_params
@@ -408,7 +417,7 @@ module PahoMqtt
         :will_payload  => @will_payload,
         :will_qos      => @will_qos,
         :will_retain   => @will_retain
-     }
+      }
     end
 
     def check_persistence

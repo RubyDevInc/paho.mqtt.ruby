@@ -44,7 +44,7 @@ module PahoMqtt
         sleep 0.0001
       end
       unless is_connected?
-        PahoMqtt.logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}, socket is \"#{@socket}\".") if PahoMqtt.logger?
+        PahoMqtt.logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}.") if PahoMqtt.logger?
         raise Exception.new("Connection failed. Check log for more details.") unless reconnection
       end
       @cs

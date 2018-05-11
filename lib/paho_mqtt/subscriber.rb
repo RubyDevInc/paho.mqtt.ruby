@@ -41,6 +41,7 @@ module PahoMqtt
           @subscribed_topics = []
         end
         @suback_mutex.synchronize do
+          raise FullQueueSubackException if @waiting_suback.length >= MAX_SUBACK
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         @sender.send_packet(packet)
@@ -102,6 +103,7 @@ module PahoMqtt
         )
         @sender.append_to_writing(packet)
         @suback_mutex.synchronize do
+          raise FullQueueSubackException if @waiting_suback.length >= MAX_SUBACK
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
@@ -119,6 +121,7 @@ module PahoMqtt
 
         @sender.append_to_writing(packet)
         @unsuback_mutex.synchronize do
+          raise FullQueueUnsubackException if @waiting_suback.length >= MAX_UNSUBACK
           @waiting_unsuback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
@@ -128,8 +131,8 @@ module PahoMqtt
     end
 
     def check_waiting_subscriber
-      @sender.check_ack_alive(@waiting_suback, @suback_mutex, @waiting_suback.length)
-      @sender.check_ack_alive(@waiting_unsuback, @unsuback_mutex, @waiting_unsuback.length)
+      @sender.check_ack_alive(@waiting_suback, @suback_mutex)
+      @sender.check_ack_alive(@waiting_unsuback, @unsuback_mutex)
     end
 
     def valid_topics?(topics)
