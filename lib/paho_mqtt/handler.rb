@@ -140,16 +140,12 @@ module PahoMqtt
     end
 
     def handle_publish(packet)
-      begin
         id = packet.id
         qos = packet.qos
         if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
           @on_message.call(packet) unless @on_message.nil?
           check_callback(packet)
         end
-      rescue FullQueuePubrelException
-        PahoMqtt.logger.error('PUBREL queue is full, could not acknowledge qos=2') if PahoMqtt.logger?
-      end
     end
 
     def handle_puback(packet)
@@ -174,13 +170,9 @@ module PahoMqtt
     end
 
     def handle_pubcomp(packet)
-      begin
-        id = packet.id
+      id = packet.id
       if @publisher.do_pubcomp(id) == MQTT_ERR_SUCCESS
         @on_pubcomp.call(packet) unless @on_pubcomp.nil?
-      end
-      rescue FullQueuePubcompcException
-        PahoMqtt.logger.error('PUBCOMP queue is full, could not acknowledge qos=2') if PahoMqtt.logger?
       end
     end
 

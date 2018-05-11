@@ -221,19 +221,12 @@ module PahoMqtt
     end
 
     def publish(topic, payload="", retain=false, qos=0)
-      begin
-        if topic == "" || !topic.is_a?(String)
-          PahoMqtt.logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
-          raise ArgumentError
-        end
-        id = next_packet_id
-        @publisher.send_publish(topic, payload, retain, qos, id)
-        MQTT_ERR_SUCCESS
-      rescue FullQueuePubackException
-        PahoMqtt.logger.error('PUBACK queue is full, could not send with qos=!') if PahoMqtt.logger?
-      rescue FullQueuePubrecException
-        PahoMqtt.logger.error('PUBREC queue is full, could not send with qos=2') if PahoMqtt.logger?
+      if topic == "" || !topic.is_a?(String)
+        PahoMqtt.logger.error("Publish topics is invalid, not a string or empty.") if PahoMqtt.logger?
+        raise ArgumentError
       end
+      id = next_packet_id
+      @publisher.send_publish(topic, payload, retain, qos, id)
     end
 
     def subscribe(*topics)
@@ -248,8 +241,6 @@ module PahoMqtt
         disconnect(false)
         raise ProtocolViolation
       end
-    rescue FullQueueSubackException
-      PahoMqtt.logger.error('SUBACK queue is full, could not send subscribe') if PahoMqtt.logger?
     end
 
     def unsubscribe(*topics)
@@ -264,8 +255,6 @@ module PahoMqtt
         disconnect(false)
         raise ProtocolViolation
       end
-    rescue FullQueueUnsubackException
-      PahoMqtt.logger.error('UNSUBACK queue is full, could not send unbsubscribe') if PahoMqtt.logger?
     end
 
     def ping_host

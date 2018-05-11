@@ -41,7 +41,10 @@ module PahoMqtt
           @subscribed_topics = []
         end
         @suback_mutex.synchronize do
-          raise FullQueueSubackException if @waiting_suback.length >= MAX_SUBACK
+          if @waiting_suback.length >= MAX_SUBACK
+            PahoMqtt.logger.error('SUBACK queue is full, could not send subscribe') if PahoMqtt.logger?
+            return MQTT_ERR_FAILURE
+          end
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         @sender.send_packet(packet)
@@ -103,7 +106,10 @@ module PahoMqtt
         )
         @sender.append_to_writing(packet)
         @suback_mutex.synchronize do
-          raise FullQueueSubackException if @waiting_suback.length >= MAX_SUBACK
+          if @waiting_suback.length >= MAX_SUBACK
+            PahoMqtt.logger.error('SUBACK queue is full, could not send subscribe') if PahoMqtt.logger?
+            return MQTT_ERR_FAILURE
+          end
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
@@ -121,7 +127,10 @@ module PahoMqtt
 
         @sender.append_to_writing(packet)
         @unsuback_mutex.synchronize do
-          raise FullQueueUnsubackException if @waiting_suback.length >= MAX_UNSUBACK
+          if @waiting_suback.length >= MAX_UNSUBACK
+            PahoMqtt.logger.error('UNSUBACK queue is full, could not send unbsubscribe') if PahoMqtt.logger?
+            return MQTT_ERR_FAIL
+          end
           @waiting_unsuback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
