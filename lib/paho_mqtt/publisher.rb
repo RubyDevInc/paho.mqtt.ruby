@@ -39,17 +39,25 @@ module PahoMqtt
         :retain  => retain,
         :qos     => qos
       )
-      @sender.append_to_writing(packet)
       case qos
       when 1
         @puback_mutex.synchronize do
+          if @waiting_puback.length >= MAX_PUBACK
+            PahoMqtt.logger.error('PUBACK queue is full, could not send with qos=1') if PahoMqtt.logger?
+            return MQTT_ERR_FAIL
+          end
           @waiting_puback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
       when 2
         @pubrec_mutex.synchronize do
+          if @waiting_pubrec.length >= MAX_PUBREC
+            PahoMqtt.logger.error('PUBREC queue is full, could not send with qos=2') if PahoMqtt.logger?
+            return MQTT_ERR_FAIL
+          end
           @waiting_pubrec.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
       end
+      @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
@@ -86,10 +94,14 @@ module PahoMqtt
       packet = PahoMqtt::Packet::Pubrec.new(
         :id => packet_id
       )
-      @sender.append_to_writing(packet)
       @pubrel_mutex.synchronize do
+        if @waiting_pubrel.length >= MAX_PUBREL
+          PahoMqtt.logger.error('PUBREL queue is full, could not acknowledge qos=2') if PahoMqtt.logger?
+          return MQTT_ERR_FAIL
+        end
         @waiting_pubrel.push(:id => packet_id , :packet => packet, :timestamp => Time.now)
       end
+      @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
@@ -105,10 +117,14 @@ module PahoMqtt
       packet = PahoMqtt::Packet::Pubrel.new(
         :id => packet_id
       )
-      @sender.append_to_writing(packet)
       @pubcomp_mutex.synchronize do
+        if @waiting_pubcomp.length >= MAX_PUBCOMP
+          PahoMqtt.logger.error('PUBCOMP queue is full, could not acknowledge qos=2') if PahoMqtt.logger?
+          return MQTT_ERR_FAIL
+        end
         @waiting_pubcomp.push(:id => packet_id, :packet => packet, :timestamp => Time.now)
       end
+      @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
@@ -136,30 +152,25 @@ module PahoMqtt
     end
 
     def config_all_message_queue
-      config_message_queue(@waiting_puback, @puback_mutex, MAX_PUBACK)
-      config_message_queue(@waiting_pubrec, @pubrec_mutex, MAX_PUBREC)
-      config_message_queue(@waiting_pubrel, @pubrel_mutex, MAX_PUBREL)
-      config_message_queue(@waiting_pubcomp, @pubcomp_mutex, MAX_PUBCOMP)
+      config_message_queue(@waiting_puback, @puback_mutex)
+      config_message_queue(@waiting_pubrec, @pubrec_mutex)
+      config_message_queue(@waiting_pubrel, @pubrel_mutex)
+      config_message_queue(@waiting_pubcomp, @pubcomp_mutex)
     end
 
-    def config_message_queue(queue, mutex, max_packet)
+    def config_message_queue(queue, mutex)
       mutex.synchronize do
-        cnt = 0
         queue.each do |pck|
-          pck[:packet].dup ||= true
-          if cnt <= max_packet
-            @sender.append_to_writing(pck[:packet])
-            cnt += 1
-          end
+          pck[:timestamp] = Time.now
         end
       end
     end
 
     def check_waiting_publisher
-      @sender.check_ack_alive(@waiting_puback, @puback_mutex, MAX_PUBACK)
-      @sender.check_ack_alive(@waiting_pubrec, @pubrec_mutex, MAX_PUBREC)
-      @sender.check_ack_alive(@waiting_pubrel, @pubrel_mutex, MAX_PUBREL)
-      @sender.check_ack_alive(@waiting_pubcomp, @pubcomp_mutex, MAX_PUBCOMP)
+      @sender.check_ack_alive(@waiting_puback, @puback_mutex)
+      @sender.check_ack_alive(@waiting_pubrec, @pubrec_mutex)
+      @sender.check_ack_alive(@waiting_pubrel, @pubrel_mutex)
+      @sender.check_ack_alive(@waiting_pubcomp, @pubcomp_mutex)
     end
 
     def flush_publisher

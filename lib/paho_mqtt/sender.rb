@@ -41,7 +41,7 @@ module PahoMqtt
 
     def append_to_writing(packet)
       @writing_mutex.synchronize do
-        @writing_queue.push(packet)
+        @writing_queue.push(packet) unless @writing_queue.length >= MAX_WRITING
       end
       MQTT_ERR_SUCCESS
     end
@@ -70,18 +70,14 @@ module PahoMqtt
       end
     end
 
-    def check_ack_alive(queue, mutex, max_packet)
+    def check_ack_alive(queue, mutex)
       mutex.synchronize do
         now = Time.now
-        cnt = 0
         queue.each do |pck|
           if now >= pck[:timestamp] + @ack_timeout
             pck[:packet].dup ||= true unless pck[:packet].class == PahoMqtt::Packet::Subscribe || pck[:packet].class == PahoMqtt::Packet::Unsubscribe
-            unless cnt > max_packet
-              append_to_writing(pck[:packet])
-              pck[:timestamp] = now
-              cnt += 1
-            end
+            append_to_writing(pck[:packet])
+            pck[:timestamp] = now
           end
         end
       end

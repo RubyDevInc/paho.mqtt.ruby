@@ -41,6 +41,10 @@ module PahoMqtt
           @subscribed_topics = []
         end
         @suback_mutex.synchronize do
+          if @waiting_suback.length >= MAX_SUBACK
+            PahoMqtt.logger.error('SUBACK queue is full, could not send subscribe') if PahoMqtt.logger?
+            return MQTT_ERR_FAILURE
+          end
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         @sender.send_packet(packet)
@@ -60,7 +64,6 @@ module PahoMqtt
           elsif max_qos[0] == 128
             adjust_qos.delete(t)
           else
-
             PahoMqtt.logger.error("The QoS value is invalid in subscribe.") if PahoMqtt.logger?
             raise PacketException.new('Invalid suback QoS value')
           end
@@ -103,6 +106,10 @@ module PahoMqtt
         )
         @sender.append_to_writing(packet)
         @suback_mutex.synchronize do
+          if @waiting_suback.length >= MAX_SUBACK
+            PahoMqtt.logger.error('SUBACK queue is full, could not send subscribe') if PahoMqtt.logger?
+            return MQTT_ERR_FAILURE
+          end
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
@@ -120,6 +127,10 @@ module PahoMqtt
 
         @sender.append_to_writing(packet)
         @unsuback_mutex.synchronize do
+          if @waiting_suback.length >= MAX_UNSUBACK
+            PahoMqtt.logger.error('UNSUBACK queue is full, could not send unbsubscribe') if PahoMqtt.logger?
+            return MQTT_ERR_FAIL
+          end
           @waiting_unsuback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
         MQTT_ERR_SUCCESS
@@ -129,8 +140,8 @@ module PahoMqtt
     end
 
     def check_waiting_subscriber
-      @sender.check_ack_alive(@waiting_suback, @suback_mutex, @waiting_suback.length)
-      @sender.check_ack_alive(@waiting_unsuback, @unsuback_mutex, @waiting_unsuback.length)
+      @sender.check_ack_alive(@waiting_suback, @suback_mutex)
+      @sender.check_ack_alive(@waiting_unsuback, @unsuback_mutex)
     end
 
     def valid_topics?(topics)

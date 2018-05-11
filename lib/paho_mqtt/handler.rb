@@ -85,7 +85,7 @@ module PahoMqtt
         PahoMqtt.logger.debug(packet.return_msg) if PahoMqtt.logger?
         handle_connack_accepted(packet.session_present)
       else
-        PahoMqtt.logger.warm(packet.return_msg)
+        PahoMqtt.logger.warm(packet.return_msg) if PahoMqtt.logger?
         MQTT_CS_DISCONNECTED
       end
       @on_connack.call(packet) unless @on_connack.nil?
@@ -140,12 +140,12 @@ module PahoMqtt
     end
 
     def handle_publish(packet)
-      id = packet.id
-      qos = packet.qos
-      if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
-        @on_message.call(packet) unless @on_message.nil?
-        check_callback(packet)
-      end
+        id = packet.id
+        qos = packet.qos
+        if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
+          @on_message.call(packet) unless @on_message.nil?
+          check_callback(packet)
+        end
     end
 
     def handle_puback(packet)
@@ -253,7 +253,6 @@ module PahoMqtt
       if PahoMqtt::PACKET_TYPES[3..13].include?(type)
         type.to_s.split('::').last.downcase
       else
-        puts "Packet: #{packet.inspect}"
         PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}.") if PahoMqtt.logger?
          raise PacketException.new('Invalid packet type id')
       end

@@ -111,15 +111,17 @@ client = PahoMqtt::Client.new({host: "iot.eclispe.org", port: 1883, ssl: false})
 The client has many accessors which help to configure the client depending on user's need. The different accessors could be splited in four roles, connection setup, last will setup, time-out setup and callback setup.
 Connection setup:
 ```
-* host          : The endpoint where the client would try to connect (defaut "")
-* port          : The port on the remote host where the socket would try to connect (default 1883)
-* mqtt_version  : The version of MQTT protocol used to communication (default 3.1.1)
-* clean_session : If set to false, ask the message broker to try to restore the previous session (default true)
-* persistent    : Keep the client connected even after keep alive timer run out, automatically try to reconnect on failure (default false)
-* client_id     : The identifier of the client (default nil)
-* username      : The username if the server require authentication (default nil)
-* password      : The password of the user if authentication required (default nil)
-* ssl           : Requiring the encryption for the communication (default false)
+* host            : The endpoint where the client would try to connect (defaut "")
+* port            : The port on the remote host where the socket would try to connect (default 1883)
+* mqtt_version    : The version of MQTT protocol used to communication (default 3.1.1)
+* clean_session   : If set to false, ask the message broker to try to restore the previous session (default true)
+* persistent      : Keep the client connected even after keep alive timer run out, automatically try to reconnect on failure (default false)
+* reconnect_limit : If persistent mode is enabled, the maximum reconnect attempt (default 3)
+* reconnect_delay : If persistent mode is enabled, the delay between to reconnection attempt in second (default 5)
+* client_id       : The identifier of the client (default nil)
+* username        : The username if the server require authentication (default nil)
+* password        : The password of the user if authentication required (default nil)
+* ssl             : Requiring the encryption for the communication (default false)
 ```
 
 Last Will:
@@ -186,7 +188,6 @@ client.connect("test.mosquitto.org", 8884)
 ### Persistence
 The client holds a keep_alive timer is the reference time that the connection should be held. The timer is reset every time a new valid packet is received from the message broker. The persistence flag, when set to True, enables the client to be more independent from the keep_alive timer. Just before the keep_alive run out, the client sends a ping request to tell to the message broker that the connection should be kept. The persistent mode also enables the client to automatically reconnect to the message broker after an unexpected failure.  
 When the client's persistence flag is set to False, it just simply disconnects when the keep_alive timer runs out.  
-
 ```ruby
 ### This will connect to the message broker, keep connected and automatically reconnect on failure
 client.connect('iot.eclipse.org', 1883, client.keep_alive, true, client.blocking)
@@ -194,6 +195,7 @@ client.connect('iot.eclipse.org', 1883, client.keep_alive, true, client.blocking
 ### This only connect to the message broker, disconnect after keep_alive or on failure
 client.connect('iot.eclipse.org', 1883, client.keep_alive, false, client.blocking)
 ```
+The client has two attributes `@reconnect_limit` and `@reconnect_delay` which configure the reconnection process. `@reconnection_limit` is the maximum reconnection attempt that a client could try and `@reconnection_delay` is the delay that the client waits between two reconnection attempt. Setting the `@reconnect_limit` to -1 would run the reconnection process forever. 
 
 ### Foreground and Daemon
 The client could be connected to the message broker using the main thread in foreground or as a daemon in a separate thread. The default mode is daemon mode, the daemon would run in the background the read/write operation as well as the control of the timers. If the client is connected using the main thread, all control operations are left to the user, using the different control loops. There are four different loop roles is detailed in the next part.
