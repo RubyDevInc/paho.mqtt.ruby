@@ -180,7 +180,6 @@ module PahoMqtt
       loop_read
       loop_write
       loop_misc
-      sleep LOOP_TEMPO
     end
 
     def loop_misc

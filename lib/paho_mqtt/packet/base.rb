@@ -66,7 +66,7 @@ module PahoMqtt
           packet.instance_variable_set('@body_length', body_length)
 
           # Read in the packet body
-          packet.parse_body(socket.read(body_length))
+          packet.parse_body(socket.read_nonblock(body_length))
         end
         packet
       end
@@ -303,7 +303,7 @@ module PahoMqtt
 
       # Read and unpack a single byte from a socket
       def self.read_byte(socket)
-        byte = socket.read(1)
+        byte = socket.read_nonblock(1)
         unless byte.nil?
           byte.unpack('C').first
         else
