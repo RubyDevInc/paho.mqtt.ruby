@@ -34,9 +34,13 @@ module PahoMqtt
         @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
         @last_ping_req = Time.now
         MQTT_ERR_SUCCESS
-      rescue StandardError
-        raise WritingException
       end
+    rescue StandardError
+      raise WritingException
+    rescue IO::WaitWritable
+      IO.select(nil, [@socket], nil, SELECT_TIMEOUT)
+      retry
+
     end
 
     def append_to_writing(packet)
@@ -68,6 +72,10 @@ module PahoMqtt
       else
         @writing_queue = []
       end
+    end
+
+    def send_pingreq
+      append_to_writing(PahoMqtt::Packet::Pingreq.new)
     end
 
     def check_ack_alive(queue, mutex)
