@@ -40,12 +40,25 @@ module PahoMqtt
     rescue IO::WaitWritable
       IO.select(nil, [@socket], nil, SELECT_TIMEOUT)
       retry
+    end
 
+    def send_pingreq
+      send_packet(PahoMqtt::Packet::Pingreq.new)
     end
 
     def append_to_writing(packet)
-      @writing_mutex.synchronize do
-        @writing_queue.push(packet) unless @writing_queue.length >= MAX_WRITING
+      begin
+        if @writing_queue.length <= MAX_WRITING
+          @writing_mutex.synchronize do
+            @writing_queue.push(packet)
+          end
+        else
+          PahoMqtt.logger.error('Writing queue is full slowing down') if PahoMqtt.logger?
+          raise FullWritingException
+        end
+      rescue FullWritingException
+        sleep SELECT_TIMEOUT
+        retry
       end
       MQTT_ERR_SUCCESS
     end
@@ -72,10 +85,6 @@ module PahoMqtt
       else
         @writing_queue = []
       end
-    end
-
-    def send_pingreq
-      append_to_writing(PahoMqtt::Packet::Pingreq.new)
     end
 
     def check_ack_alive(queue, mutex)
