@@ -124,7 +124,6 @@ module PahoMqtt
           :id     => new_id,
           :topics => topics
         )
-
         @sender.append_to_writing(packet)
         @unsuback_mutex.synchronize do
           if @waiting_suback.length >= MAX_UNSUBACK

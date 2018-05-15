@@ -237,7 +237,6 @@ module PahoMqtt
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
         PahoMqtt.logger.error("Subscribe topics need one topic or a list of topics.") if PahoMqtt.logger?
-        disconnect(false)
         raise ProtocolViolation
       end
     end
@@ -251,7 +250,6 @@ module PahoMqtt
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
         PahoMqtt.logger.error("Unsubscribe need at least one topic.") if PahoMqtt.logger?
-        disconnect(false)
         raise ProtocolViolation
       end
     end
