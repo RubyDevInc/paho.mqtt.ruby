@@ -163,15 +163,15 @@ module PahoMqtt
     end
 
     def loop_read(max_packet=MAX_READ)
-      max_packet.times do
-        begin
+      begin
+        max_packet.times do
           @handler.receive_packet
-        rescue ReadingException
-          if check_persistence
-            reconnect
-          else
-            raise ReadingException
-          end
+        end
+      rescue ReadingException
+        if check_persistence
+          reconnect
+        else
+          raise ReadingException
         end
       end
     end
