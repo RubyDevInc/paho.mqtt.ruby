@@ -25,18 +25,17 @@ module PahoMqtt
   # Default connection setup
   DEFAULT_SSL_PORT      = 8883
   DEFAULT_PORT          = 1883
-  SELECT_TIMEOUT        = 0
-  LOOP_TEMPO            = 0.005
+  SELECT_TIMEOUT        = 0.002
 
   # MAX size of queue
   MAX_SUBACK   = 10
   MAX_UNSUBACK = 10
-  MAX_READ     = 50
+  MAX_READ     = 100
   MAX_PUBACK   = 100
   MAX_PUBREC   = 100
   MAX_PUBREL   = 100
   MAX_PUBCOMP  = 100
-  MAX_WRITING  = MAX_PUBACK + MAX_PUBREC + MAX_PUBREL  + MAX_PUBCOMP
+  MAX_WRITING  = 1000
 
   # Connection states values
   MQTT_CS_NEW        = 0

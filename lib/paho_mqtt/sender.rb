@@ -34,14 +34,31 @@ module PahoMqtt
         @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
         @last_ping_req = Time.now
         MQTT_ERR_SUCCESS
-      rescue StandardError
-        raise WritingException
       end
+    rescue StandardError
+      raise WritingException
+    rescue IO::WaitWritable
+      IO.select(nil, [@socket], nil, SELECT_TIMEOUT)
+      retry
+    end
+
+    def send_pingreq
+      send_packet(PahoMqtt::Packet::Pingreq.new)
     end
 
     def append_to_writing(packet)
-      @writing_mutex.synchronize do
-        @writing_queue.push(packet) unless @writing_queue.length >= MAX_WRITING
+      begin
+        if @writing_queue.length <= MAX_WRITING
+          @writing_mutex.synchronize do
+            @writing_queue.push(packet)
+          end
+        else
+          PahoMqtt.logger.error('Writing queue is full slowing down') if PahoMqtt.logger?
+          raise FullWritingException
+        end
+      rescue FullWritingException
+        sleep SELECT_TIMEOUT
+        retry
       end
       MQTT_ERR_SUCCESS
     end

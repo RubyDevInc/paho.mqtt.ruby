@@ -163,15 +163,15 @@ module PahoMqtt
     end
 
     def loop_read(max_packet=MAX_READ)
-      max_packet.times do
-        begin
+      begin
+        max_packet.times do
           @handler.receive_packet
-        rescue ReadingException
-          if check_persistence
-            reconnect
-          else
-            raise ReadingException
-          end
+        end
+      rescue ReadingException
+        if check_persistence
+          reconnect
+        else
+          raise ReadingException
         end
       end
     end
@@ -180,7 +180,6 @@ module PahoMqtt
       loop_read
       loop_write
       loop_misc
-      sleep LOOP_TEMPO
     end
 
     def loop_misc
@@ -238,7 +237,6 @@ module PahoMqtt
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
         PahoMqtt.logger.error("Subscribe topics need one topic or a list of topics.") if PahoMqtt.logger?
-        disconnect(false)
         raise ProtocolViolation
       end
     end
@@ -252,7 +250,6 @@ module PahoMqtt
         MQTT_ERR_SUCCESS
       rescue ProtocolViolation
         PahoMqtt.logger.error("Unsubscribe need at least one topic.") if PahoMqtt.logger?
-        disconnect(false)
         raise ProtocolViolation
       end
     end

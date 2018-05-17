@@ -36,7 +36,7 @@ module PahoMqtt
     end
 
     def receive_packet
-      result = IO.select([@socket], [], [], SELECT_TIMEOUT) unless @socket.nil? || @socket.closed?
+      result = IO.select([@socket], nil, nil, SELECT_TIMEOUT) unless @socket.nil? || @socket.closed?
       unless result.nil?
         packet = PahoMqtt::Packet::Base.read(@socket)
         unless packet.nil?
@@ -86,7 +86,7 @@ module PahoMqtt
         handle_connack_accepted(packet.session_present)
       else
         PahoMqtt.logger.warm(packet.return_msg) if PahoMqtt.logger?
-        MQTT_CS_DISCONNECTED
+        MQTT_CS_DISCONNECT
       end
       @on_connack.call(packet) unless @on_connack.nil?
       MQTT_CS_CONNECTED

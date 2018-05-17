@@ -131,8 +131,8 @@ describe PahoMqtt::Client do
       client.ack_timeout = 2
       client.connect(client.host, client.port)
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_CONNECTED)
-      client.keep_alive = 0 # Make the client disconnect
-      sleep 0.001
+      client.keep_alive = 1 # Make the client disconnect
+      sleep 3
       expect(client.connection_state).to eq(PahoMqtt::MQTT_CS_DISCONNECT)
       client.keep_alive = 15
       sleep client.ack_timeout

@@ -41,7 +41,6 @@ module PahoMqtt
       connect_timeout = Time.now + @ack_timeout
       while (Time.now <= connect_timeout) && !is_connected? do
         @cs = @handler.receive_packet
-        sleep 0.0001
       end
       unless is_connected?
         PahoMqtt.logger.warn("Connection failed. Couldn't recieve a Connack packet from: #{@host}.") if PahoMqtt.logger?
@@ -144,22 +143,16 @@ module PahoMqtt
       MQTT_ERR_SUCCESS
     end
 
-    def send_pingreq
-      packet = PahoMqtt::Packet::Pingreq.new
-      @sender.send_packet(packet)
-      MQTT_ERR_SUCCESS
-    end
-
     def check_keep_alive(persistent, last_ping_resp, keep_alive)
       now = Time.now
       timeout_req = (@sender.last_ping_req + (keep_alive * 0.7).ceil)
       if timeout_req <= now && persistent
         PahoMqtt.logger.debug("Checking if server is still alive...") if PahoMqtt.logger?
-        send_pingreq
+        @sender.send_pingreq
       end
       timeout_resp = last_ping_resp + (keep_alive * 1.1).ceil
       if timeout_resp <= now
-        PahoMqtt.logger.debug("No activity period over timeout, disconnecting from #{@host}.") if PahoMqtt.logger?
+        PahoMqtt.logger.debug("No activity is over timeout, disconnecting from #{@host}.") if PahoMqtt.logger?
         @cs = MQTT_CS_DISCONNECT
       end
       @cs
