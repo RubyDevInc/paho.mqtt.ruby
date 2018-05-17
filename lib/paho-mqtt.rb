@@ -30,11 +30,11 @@ module PahoMqtt
   # MAX size of queue
   MAX_SUBACK   = 10
   MAX_UNSUBACK = 10
-  MAX_READ     = 1000
-  MAX_PUBACK   = 1000
-  MAX_PUBREC   = 1000
-  MAX_PUBREL   = 1000
-  MAX_PUBCOMP  = 1000
+  MAX_READ     = 100
+  MAX_PUBACK   = 100
+  MAX_PUBREC   = 100
+  MAX_PUBREL   = 100
+  MAX_PUBCOMP  = 100
   MAX_WRITING  = 1000
 
   # Connection states values
