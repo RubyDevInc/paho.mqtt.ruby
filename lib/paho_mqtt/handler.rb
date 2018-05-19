@@ -42,13 +42,14 @@ module PahoMqtt
         unless packet.nil?
           if packet.is_a?(PahoMqtt::Packet::Connack)
             @last_ping_resp = Time.now
-            handle_connack(packet)
+            return handle_connack(packet)
           else
             handle_packet(packet)
             @last_ping_resp = Time.now
           end
         end
       end
+      return result
     end
 
     def handle_packet(packet)

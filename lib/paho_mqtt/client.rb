@@ -165,7 +165,8 @@ module PahoMqtt
     def loop_read(max_packet=MAX_READ)
       begin
         max_packet.times do
-          @handler.receive_packet
+          result = @handler.receive_packet
+          break if result.nil?
         end
       rescue ReadingException
         if check_persistence
@@ -188,6 +189,7 @@ module PahoMqtt
       end
       @publisher.check_waiting_publisher
       @subscriber.check_waiting_subscriber
+      sleep SELECT_TIMEOUT
     end
 
     def reconnect
