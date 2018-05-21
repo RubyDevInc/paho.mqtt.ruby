@@ -85,7 +85,7 @@ module PahoMqtt
         PahoMqtt.logger.debug(packet.return_msg) if PahoMqtt.logger?
         handle_connack_accepted(packet.session_present)
       else
-        PahoMqtt.logger.warm(packet.return_msg) if PahoMqtt.logger?
+        PahoMqtt.logger.warn(packet.return_msg) if PahoMqtt.logger?
         MQTT_CS_DISCONNECT
       end
       @on_connack.call(packet) unless @on_connack.nil?
