@@ -150,9 +150,9 @@ module PahoMqtt
       Thread.current == @reconnect_thread
     end
 
-    def loop_write(max_packet=MAX_WRITING)
+    def loop_write
       begin
-        @sender.writing_loop(max_packet)
+        @sender.writing_loop
       rescue WritingException
         if check_persistence
           reconnect
@@ -162,9 +162,9 @@ module PahoMqtt
       end
     end
 
-    def loop_read(max_packet=MAX_READ)
+    def loop_read
       begin
-        max_packet.times do
+        MAX_QUEUE.times do
           result = @handler.receive_packet
           break if result.nil?
         end
@@ -353,7 +353,8 @@ module PahoMqtt
 
     def next_packet_id
       @id_mutex.synchronize do
-        @last_packet_id = (@last_packet_id || 0).next
+        @last_packet_id = 0 if @last_packet_id >= MAX_PACKET_ID
+        @last_packet_id = @last_packet_id.next
       end
     end
 

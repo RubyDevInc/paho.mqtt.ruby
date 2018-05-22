@@ -141,12 +141,12 @@ module PahoMqtt
     end
 
     def handle_publish(packet)
-        id = packet.id
-        qos = packet.qos
-        if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
-          @on_message.call(packet) unless @on_message.nil?
-          check_callback(packet)
-        end
+      id = packet.id
+      qos = packet.qos
+      if @publisher.do_publish(qos, id) == MQTT_ERR_SUCCESS
+        @on_message.call(packet) unless @on_message.nil?
+        check_callback(packet)
+      end
     end
 
     def handle_puback(packet)
@@ -255,7 +255,7 @@ module PahoMqtt
         type.to_s.split('::').last.downcase
       else
         PahoMqtt.logger.error("Received an unexpeceted packet: #{packet}.") if PahoMqtt.logger?
-         raise PacketException.new('Invalid packet type id')
+        raise PacketException.new('Invalid packet type id')
       end
     end
 
