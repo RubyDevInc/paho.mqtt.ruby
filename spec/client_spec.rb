@@ -292,6 +292,7 @@ describe PahoMqtt::Client do
       expect(filter).to be false
       expect(message).to be false
       client.subscribe(["/My_all_topic/topic1", 1])
+      sleep 1
       client.publish("/My_all_topic/topic1", "Hello World", false, 0)
       while !message && !filter do
         sleep 0.0001

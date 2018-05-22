@@ -45,6 +45,7 @@ module PahoMqtt
       when 2
         push_queue(@waiting_pubrec, @pubrec_mutex, MAX_PUBREC, packet, new_id)
       end
+      @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
@@ -56,7 +57,6 @@ module PahoMqtt
         queue_mutex.synchronize do
           waiting_queue.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
-        @sender.append_to_writing(packet)
       rescue FullQueueException
         PahoMqtt.logger.error("#{packet.type_name} queue is full") if PahoMqtt.logger?
         sleep SELECT_TIMEOUT
@@ -99,6 +99,7 @@ module PahoMqtt
         :id => packet_id
       )
       push_queue(@waiting_pubrel, @pubrel_mutex, MAX_PUBREL, packet, packet_id)
+      @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
@@ -107,7 +108,6 @@ module PahoMqtt
         @waiting_pubrec.delete_if { |pck| pck[:id] == packet_id }
       end
       send_pubrel(packet_id)
-      MQTT_ERR_SUCCESS
     end
 
     def send_pubrel(packet_id)
@@ -115,6 +115,8 @@ module PahoMqtt
         :id => packet_id
       )
       push_queue(@waiting_pubcomp, @pubcomp_mutex, MAX_PUBCOMP, packet, packet_id)
+      @sender.append_to_writing(packet)
+      MQTT_ERR_SUCCESS
     end
 
     def do_pubrel(packet_id)
@@ -122,7 +124,6 @@ module PahoMqtt
         @waiting_pubrel.delete_if { |pck| pck[:id] == packet_id }
       end
       send_pubcomp(packet_id)
-      MQTT_ERR_SUCCESS
     end
 
     def send_pubcomp(packet_id)
