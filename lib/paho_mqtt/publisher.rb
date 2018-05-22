@@ -45,7 +45,6 @@ module PahoMqtt
       when 2
         push_queue(@waiting_pubrec, @pubrec_mutex, MAX_PUBREC, packet, new_id)
       end
-      @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
@@ -57,6 +56,7 @@ module PahoMqtt
         queue_mutex.synchronize do
           waiting_queue.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
+        @sender.append_to_writing(packet)
       rescue FullQueueException
         PahoMqtt.logger.error("#{packet.type_name} queue is full") if PahoMqtt.logger?
         sleep SELECT_TIMEOUT
