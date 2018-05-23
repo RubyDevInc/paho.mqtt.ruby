@@ -97,6 +97,7 @@ module PahoMqtt
         @writing_mutex.synchronize do
           @writing_queue.each do |m|
             send_packet(m)
+            @writing_queue.delete(m)
           end
         end
       else

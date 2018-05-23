@@ -115,9 +115,9 @@ module PahoMqtt
       init_connection
       @connection_helper.send_connect(session_params)
       begin
+        build_pubsub
         @connection_state = @connection_helper.do_connect(reconnect?)
         if connected?
-          build_pubsub
           daemon_mode unless @blocking
         end
       rescue LowVersionException

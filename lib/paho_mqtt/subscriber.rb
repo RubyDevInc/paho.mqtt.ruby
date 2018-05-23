@@ -47,7 +47,7 @@ module PahoMqtt
           end
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
-        @sender.send_packet(packet)
+        @sender.append_to_writing(packet)
       end
       MQTT_ERR_SUCCESS
     end
