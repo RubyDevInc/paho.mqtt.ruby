@@ -115,9 +115,10 @@ module PahoMqtt
       init_connection
       @connection_helper.send_connect(session_params)
       begin
-        build_pubsub
+        init_pubsub
         @connection_state = @connection_helper.do_connect(reconnect?)
         if connected?
+          build_pubsub
           daemon_mode unless @blocking
         end
       rescue LowVersionException
@@ -368,21 +369,16 @@ module PahoMqtt
       end
     end
 
-    def build_pubsub
-      if @subscriber.nil?
-        @subscriber = Subscriber.new(@sender)
-      else
-        @subscriber.sender = @sender
-        @subscriber.config_subscription(next_packet_id)
-      end
-      if @publisher.nil?
-        @publisher = Publisher.new(@sender)
-      else
-        @publisher.sender = @sender
-        @sender.flush_waiting_packet
-        @publisher.config_all_message_queue
-      end
+    def init_pubsub
+      @subscriber.nil? ? @subscriber = Subscriber.new(@sender) : @subscriber.sender = @sender
+      @publisher.nil? ? @publisher = Publisher.new(@sender) : @publisher.sender = @sender
       @handler.config_pubsub(@publisher, @subscriber)
+    end
+
+    def build_pubsub
+      @subscriber.config_subscription(next_packet_id)
+      @sender.flush_waiting_packet
+      @publisher.config_all_message_queue
     end
 
     def init_connection

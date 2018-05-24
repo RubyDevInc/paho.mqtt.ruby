@@ -63,7 +63,7 @@ module PahoMqtt
     end
 
     def explicit_disconnect(publisher, mqtt_thread)
-      @sender.flush_waiting_packet
+      @sender.flush_waiting_packet(false)
       send_disconnect
       mqtt_thread.kill if mqtt_thread && mqtt_thread.alive?
       publisher.flush_publisher unless publisher.nil?

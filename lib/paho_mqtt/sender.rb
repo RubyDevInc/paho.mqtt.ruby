@@ -61,8 +61,7 @@ module PahoMqtt
 
     def append_to_writing(packet)
       begin
-        case packet
-        when packet.is_a?(PahoMqtt::Packet::Publish)
+        if packet.is_a?(PahoMqtt::Packet::Publish)
           prepare_sending(@publish_queue, @publish_mutex, MAX_PUBLISH, packet)
         else
           prepare_sending(@writing_queue, @writing_mutex, MAX_QUEUE, packet)
@@ -95,14 +94,18 @@ module PahoMqtt
     def flush_waiting_packet(sending=true)
       if sending
         @writing_mutex.synchronize do
-          @writing_queue.each do |m|
-            send_packet(m)
-            @writing_queue.delete(m)
+          @writing_queue.each do |packet|
+            send_packet(packet)
           end
         end
-      else
-        @writing_queue = []
+        @publish_mutex.synchronize do
+          @publish_queue.each do |packet|
+            send_packet(packet)
+          end
+        end
       end
+      @writing_queue = []
+      @publish_queue = []
     end
 
     def check_ack_alive(queue, mutex)
