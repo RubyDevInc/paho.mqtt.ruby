@@ -112,7 +112,7 @@ module PahoMqtt
       end
       @mqtt_thread.kill unless @mqtt_thread.nil?
 
-      init_connection
+      init_connection unless reconnect?
       @connection_helper.send_connect(session_params)
       begin
         init_pubsub
@@ -382,12 +382,9 @@ module PahoMqtt
     end
 
     def init_connection
-      unless reconnect?
-        @connection_helper         = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
-        @connection_helper.handler = @handler
-        @sender                    = @connection_helper.sender
-      end
-      @connection_helper.setup_connection
+      @connection_helper         = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
+      @connection_helper.handler = @handler
+      @sender                    = @connection_helper.sender
     end
 
     def session_params
