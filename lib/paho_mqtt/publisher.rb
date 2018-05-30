@@ -39,28 +39,28 @@ module PahoMqtt
         :retain  => retain,
         :qos     => qos
       )
-      case qos
-      when 1
-        push_queue(@waiting_puback, @puback_mutex, MAX_PUBACK, packet, new_id)
-      when 2
-        push_queue(@waiting_pubrec, @pubrec_mutex, MAX_PUBREC, packet, new_id)
+      begin
+        case qos
+        when 1
+          push_queue(@waiting_puback, @puback_mutex, MAX_QUEUE, packet, new_id)
+        when 2
+          push_queue(@waiting_pubrec, @pubrec_mutex, MAX_QUEUE, packet, new_id)
+        end
+      rescue FullQueueException
+        PahoMqtt.logger.warn("PUBLISH queue is full, waiting for publishing #{packet.inspect}") if PahoMqtt.logger?
+        sleep SELECT_TIMEOUT
+        retry
       end
       @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
 
     def push_queue(waiting_queue, queue_mutex, max_packet, packet, new_id)
-      begin
-        if waiting_queue.length >= max_packet
-          raise FullQueueException
-        end
-        queue_mutex.synchronize do
-          waiting_queue.push(:id => new_id, :packet => packet, :timestamp => Time.now)
-        end
-      rescue FullQueueException
-        PahoMqtt.logger.error("#{packet.type_name} queue is full") if PahoMqtt.logger?
-        sleep SELECT_TIMEOUT
-        retry
+      if waiting_queue.length >= max_packet
+        raise FullQueueException
+      end
+      queue_mutex.synchronize do
+        waiting_queue.push(:id => new_id, :packet => packet, :timestamp => Time.now)
       end
       MQTT_ERR_SUCCESS
     end
@@ -98,7 +98,7 @@ module PahoMqtt
       packet = PahoMqtt::Packet::Pubrec.new(
         :id => packet_id
       )
-      push_queue(@waiting_pubrel, @pubrel_mutex, MAX_PUBREL, packet, packet_id)
+      push_queue(@waiting_pubrel, @pubrel_mutex, MAX_QUEUE, packet, packet_id)
       @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end
@@ -114,7 +114,7 @@ module PahoMqtt
       packet = PahoMqtt::Packet::Pubrel.new(
         :id => packet_id
       )
-      push_queue(@waiting_pubcomp, @pubcomp_mutex, MAX_PUBCOMP, packet, packet_id)
+      push_queue(@waiting_pubcomp, @pubcomp_mutex, MAX_QUEUE, packet, packet_id)
       @sender.append_to_writing(packet)
       MQTT_ERR_SUCCESS
     end

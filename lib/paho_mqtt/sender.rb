@@ -114,7 +114,8 @@ module PahoMqtt
         queue.each do |pck|
           if now >= pck[:timestamp] + @ack_timeout
             pck[:packet].dup ||= true unless pck[:packet].class == PahoMqtt::Packet::Subscribe || pck[:packet].class == PahoMqtt::Packet::Unsubscribe
-            append_to_writing(pck[:packet])
+            PahoMqtt.logger.info("Acknowledgement timeout is over, resending #{pck[:packet].inspect}") if PahoMqtt.logger?
+            send_packet(pck[:packet])
             pck[:timestamp] = now
           end
         end

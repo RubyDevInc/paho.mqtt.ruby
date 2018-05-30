@@ -32,12 +32,8 @@ module PahoMqtt
   # MAX size of queue
   MAX_SUBACK   = 10
   MAX_UNSUBACK = 10
-  MAX_PUBACK   = 100
-  MAX_PUBREC   = 100
-  MAX_PUBREL   = 100
   MAX_PUBLISH  = 1000
-  MAX_PUBCOMP  = 100
-  MAX_QUEUE    = MAX_PUBACK + MAX_PUBREC + MAX_PUBREL + MAX_PUBCOMP
+  MAX_QUEUE    = 1000
 
   # Connection states values
   MQTT_CS_NEW        = 0

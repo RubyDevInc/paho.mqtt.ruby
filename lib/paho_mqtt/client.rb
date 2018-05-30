@@ -169,6 +169,8 @@ module PahoMqtt
           result = @handler.receive_packet
           break if result.nil?
         end
+      rescue FullQueueException
+        PahoMqtt.logger.warn("Early exit in reading loop. The maximum packets have been reach for #{packet.type_name}") if PahoMqtt.logger?
       rescue ReadingException
         if check_persistence
           reconnect
