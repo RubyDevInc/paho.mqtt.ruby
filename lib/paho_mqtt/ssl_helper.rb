@@ -18,12 +18,12 @@ module PahoMqtt
   module SSLHelper
     extend self
 
-    def config_ssl_context(cert_path, key_path, ca_path=nil)
+    def config_ssl_context(cert_path=nil, key_path=nil, ca_path=nil)
       ssl_context = OpenSSL::SSL::SSLContext.new
       set_cert(cert_path, ssl_context)
       set_key(key_path, ssl_context)
       set_root_ca(ca_path, ssl_context)
-      #ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER unless ca_path.nil?
+      # ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER unless ca_path.nil?
       ssl_context
     end
 
