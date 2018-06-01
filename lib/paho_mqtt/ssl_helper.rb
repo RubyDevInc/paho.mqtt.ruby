@@ -27,12 +27,20 @@ module PahoMqtt
       ssl_context
     end
 
-    def set_cert(cert_path, ssl_context)
-      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+    def set_cert(cert_path=nil, ssl_context)
+      unless cert_path.nil?
+        ssl_context.cert = OpenSSL::X509::Certificate.new(File.read(cert_path))
+      end
     end
 
-    def set_key(key_path, ssl_context)
-      ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
+    def set_key(key_path=nil, ssl_context)
+      unless key_path.nil?
+        begin
+          ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
+        rescue OpenSSL::PKey::RSAError
+          ssl_context.key = OpenSSL::PKey::EC.new(File.read(key_path))
+        end
+      end
     end
 
     def set_root_ca(ca_path, ssl_context)
