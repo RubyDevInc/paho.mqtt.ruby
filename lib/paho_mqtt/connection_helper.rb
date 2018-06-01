@@ -81,7 +81,6 @@ module PahoMqtt
       PahoMqtt.logger.debug("Attempt to connect to host: #{@host}...") if PahoMqtt.logger?
       begin
         tcp_socket = TCPSocket.new(@host, @port)
-        raise if tcp_socket.nil?
         if @ssl
           encrypted_socket(tcp_socket, @ssl_context)
         else
