@@ -35,11 +35,22 @@ module PahoMqtt
 
     def set_key(key_path=nil, ssl_context)
       unless key_path.nil?
+        return MQTT_ERR_SUCCESS if try_rsa_key(key_path, ssl_context) == MQTT_ERR_SUCCESS
         begin
-          ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
-        rescue OpenSSL::PKey::RSAError
           ssl_context.key = OpenSSL::PKey::EC.new(File.read(key_path))
+          return MQTT_ERR_SUCCESS
+        rescue OpenSSL::PKey::ECError
+          raise NotSupportedEncryptionException.new("Could not support the type of the provided key (supported: RSA and EC)")
         end
+      end
+    end
+
+    def try_rsa_key(key_path, ssl_context)
+      begin
+        ssl_context.key = OpenSSL::PKey::RSA.new(File.read(key_path))
+        return MQTT_ERR_SUCCESS
+      rescue OpenSSL::PKey::RSAError
+        return MQTT_ERR_FAIL
       end
     end
 

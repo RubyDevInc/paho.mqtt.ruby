@@ -46,4 +46,7 @@ module PahoMqtt
 
   class FullQueueException < Exception
   end
+
+  class NotSupportedEncryptionException < Exception
+  end
 end
