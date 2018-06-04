@@ -216,10 +216,13 @@ module PahoMqtt
     end
 
     def disconnect(explicit=true)
-      @last_packet_id = 0 if explicit
       @connection_helper.do_disconnect(@publisher, explicit, @mqtt_thread)
       @connection_state_mutex.synchronize do
         @connection_state = MQTT_CS_DISCONNECT
+      end
+      if explicit && @clean_session
+        @last_packet_id = 0
+        @subscriber.clear_queue
       end
       MQTT_ERR_SUCCESS
     end

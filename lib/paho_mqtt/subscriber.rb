@@ -143,6 +143,10 @@ module PahoMqtt
       @sender.check_ack_alive(@waiting_unsuback, @unsuback_mutex)
     end
 
+    def clear_queue
+      @waiting_suback = []
+    end
+
     def valid_topics?(topics)
       unless topics.length == 0
         topics.map do |topic|
