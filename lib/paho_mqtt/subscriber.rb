@@ -47,7 +47,7 @@ module PahoMqtt
           end
           @waiting_suback.push(:id => new_id, :packet => packet, :timestamp => Time.now)
         end
-        @sender.send_packet(packet)
+        @sender.append_to_writing(packet)
       end
       MQTT_ERR_SUCCESS
     end
@@ -141,6 +141,10 @@ module PahoMqtt
     def check_waiting_subscriber
       @sender.check_ack_alive(@waiting_suback, @suback_mutex)
       @sender.check_ack_alive(@waiting_unsuback, @unsuback_mutex)
+    end
+
+    def clear_queue
+      @waiting_suback = []
     end
 
     def valid_topics?(topics)

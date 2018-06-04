@@ -63,7 +63,7 @@ module PahoMqtt
     end
 
     def explicit_disconnect(publisher, mqtt_thread)
-      @sender.flush_waiting_packet
+      @sender.flush_waiting_packet(false)
       send_disconnect
       mqtt_thread.kill if mqtt_thread && mqtt_thread.alive?
       publisher.flush_publisher unless publisher.nil?
@@ -81,13 +81,13 @@ module PahoMqtt
       PahoMqtt.logger.debug("Attempt to connect to host: #{@host}...") if PahoMqtt.logger?
       begin
         tcp_socket = TCPSocket.new(@host, @port)
+        if @ssl
+          encrypted_socket(tcp_socket, @ssl_context)
+        else
+          @socket = tcp_socket
+        end
       rescue StandardError
         PahoMqtt.logger.warn("Could not open a socket with #{@host} on port #{@port}.") if PahoMqtt.logger?
-      end
-      if @ssl
-        encrypted_socket(tcp_socket, @ssl_context)
-      else
-        @socket = tcp_socket
       end
     end
 

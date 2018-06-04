@@ -112,9 +112,10 @@ module PahoMqtt
       end
       @mqtt_thread.kill unless @mqtt_thread.nil?
 
-      init_connection
+      init_connection unless reconnect?
       @connection_helper.send_connect(session_params)
       begin
+        init_pubsub
         @connection_state = @connection_helper.do_connect(reconnect?)
         if connected?
           build_pubsub
@@ -168,6 +169,8 @@ module PahoMqtt
           result = @handler.receive_packet
           break if result.nil?
         end
+      rescue FullQueueException
+        PahoMqtt.logger.warn("Early exit in reading loop. The maximum packets have been reach for #{packet.type_name}") if PahoMqtt.logger?
       rescue ReadingException
         if check_persistence
           reconnect
@@ -213,10 +216,13 @@ module PahoMqtt
     end
 
     def disconnect(explicit=true)
-      @last_packet_id = 0 if explicit
       @connection_helper.do_disconnect(@publisher, explicit, @mqtt_thread)
       @connection_state_mutex.synchronize do
         @connection_state = MQTT_CS_DISCONNECT
+      end
+      if explicit && @clean_session
+        @last_packet_id = 0
+        @subscriber.clear_queue
       end
       MQTT_ERR_SUCCESS
     end
@@ -368,30 +374,22 @@ module PahoMqtt
       end
     end
 
-    def build_pubsub
-      if @subscriber.nil?
-        @subscriber = Subscriber.new(@sender)
-      else
-        @subscriber.sender = @sender
-        @subscriber.config_subscription(next_packet_id)
-      end
-      if @publisher.nil?
-        @publisher = Publisher.new(@sender)
-      else
-        @publisher.sender = @sender
-        @sender.flush_waiting_packet
-        @publisher.config_all_message_queue
-      end
+    def init_pubsub
+      @subscriber.nil? ? @subscriber = Subscriber.new(@sender) : @subscriber.sender = @sender
+      @publisher.nil? ? @publisher = Publisher.new(@sender) : @publisher.sender = @sender
       @handler.config_pubsub(@publisher, @subscriber)
     end
 
+    def build_pubsub
+      @subscriber.config_subscription(next_packet_id)
+      @sender.flush_waiting_packet
+      @publisher.config_all_message_queue
+    end
+
     def init_connection
-      unless reconnect?
-        @connection_helper         = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
-        @connection_helper.handler = @handler
-        @sender                    = @connection_helper.sender
-      end
-      @connection_helper.setup_connection
+      @connection_helper         = ConnectionHelper.new(@host, @port, @ssl, @ssl_context, @ack_timeout)
+      @connection_helper.handler = @handler
+      @sender                    = @connection_helper.sender
     end
 
     def session_params
