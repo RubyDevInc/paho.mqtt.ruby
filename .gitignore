@@ -8,5 +8,8 @@
 /spec/reports/
 /tmp/
 
+.idea/
+.rubocop.yml
+
 *.gem
 *.log
