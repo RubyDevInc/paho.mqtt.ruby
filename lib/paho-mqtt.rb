@@ -99,12 +99,16 @@ module PahoMqtt
 
   Thread.abort_on_exception = true
 
-  def logger=(logger_path)
-    file           = File.open(logger_path, "a+")
-    file.sync      = true
-    log_file       = Logger.new(file)
-    log_file.level = Logger::DEBUG
-    @logger        = log_file
+  def logger=(logger_instance)
+    if logger_instance.is_a? String
+      file           = File.open(logger_instance, 'a+')
+      file.sync      = true
+      log_file       = Logger.new(file)
+      log_file.level = Logger::DEBUG
+      @logger        = log_file
+    else
+      @logger        = logger_instance
+    end
   end
 
   def logger
