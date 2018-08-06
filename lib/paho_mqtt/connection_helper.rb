@@ -145,7 +145,7 @@ module PahoMqtt
 
     def check_keep_alive(persistent, last_ping_resp, keep_alive)
       now = Time.now
-      timeout_req = (@sender.last_ping_req + (keep_alive * 0.7).ceil)
+      timeout_req = (@sender.last_packet_sent_at + (keep_alive * 0.7).ceil)
       if timeout_req <= now && persistent
         PahoMqtt.logger.debug("Checking if server is still alive...") if PahoMqtt.logger?
         @sender.send_pingreq
