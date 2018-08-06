@@ -32,9 +32,13 @@ module PahoMqtt
 
     def send_packet(packet)
       begin
-        @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
-        @last_packet_sent_at = Time.now
-        MQTT_ERR_SUCCESS
+        if @socket.nil? || @socket.closed?
+          return false
+        else
+          @socket.write(packet.to_s)
+          @last_packet_sent_at = Time.now
+          return true
+        end
       end
     rescue StandardError
       raise WritingException
