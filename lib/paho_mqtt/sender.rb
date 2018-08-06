@@ -15,7 +15,7 @@
 module PahoMqtt
   class Sender
 
-    attr_accessor :last_packet_sent_at
+    attr_reader :last_packet_sent_at
 
     def initialize(ack_timeout)
       @socket          = nil
