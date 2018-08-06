@@ -39,12 +39,11 @@ module PahoMqtt
       unless result.nil?
         packet = PahoMqtt::Packet::Base.read(@socket)
         unless packet.nil?
+          @last_packet_received_at = Time.now
           if packet.is_a?(PahoMqtt::Packet::Connack)
-            @last_packet_received_at = Time.now
             return handle_connack(packet)
           else
             handle_packet(packet)
-            @last_packet_received_at = Time.now
           end
         end
       end
@@ -117,7 +116,6 @@ module PahoMqtt
     end
 
     def handle_pingresp(_packet)
-      @last_packet_received_at = Time.now
     end
 
     def handle_suback(packet)
