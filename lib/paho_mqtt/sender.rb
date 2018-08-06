@@ -23,7 +23,6 @@ module PahoMqtt
       @publish_queue   = []
       @publish_mutex   = Mutex.new
       @writing_mutex   = Mutex.new
-      @last_packet_sent_at = -1
       @ack_timeout     = ack_timeout
     end
 
