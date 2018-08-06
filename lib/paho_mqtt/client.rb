@@ -50,7 +50,6 @@ module PahoMqtt
     attr_reader :ssl_context
 
     def initialize(*args)
-      @last_ping_resp         = Time.now
       @last_packet_id         = 0
       @ssl_context            = nil
       @sender                 = nil
