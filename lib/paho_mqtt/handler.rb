@@ -16,7 +16,7 @@ module PahoMqtt
   class Handler
 
     attr_reader :registered_callback
-    attr_accessor :last_packet_received_at
+    attr_reader :last_packet_received_at
     attr_accessor :clean_session
 
     def initialize
