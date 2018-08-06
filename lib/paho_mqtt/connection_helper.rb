@@ -105,6 +105,7 @@ module PahoMqtt
     def clean_start(host, port)
       self.host = host
       self.port = port
+      @handler.clean_start
       unless @socket.nil?
         @socket.close unless @socket.closed?
         @socket = nil
@@ -145,12 +146,18 @@ module PahoMqtt
 
     def check_keep_alive(persistent, keep_alive)
       now = Time.now
-      next_pingreq_at = @sender.last_packet_sent_at + (keep_alive * 0.7).ceil
-      if next_pingreq_at <= now && persistent
-        PahoMqtt.logger.debug("Checking if server is still alive...") if PahoMqtt.logger?
-        @sender.send_pingreq
+      last_packet_received_at = @handler.last_packet_received_at
+      last_pingreq_sent_at = @sender.last_pingreq_sent_at
+      last_pingresp_received_at = @handler.last_pingresp_received_at
+      # send a PINGREQ only if we don't already wait for a PINGRESP
+      if !last_pingreq_sent_at or (last_pingresp_received_at and (last_pingreq_sent_at <= last_pingresp_received_at))
+        next_pingreq_at = [@sender.last_packet_sent_at, last_packet_received_at].min + (keep_alive * 0.7).ceil
+        if next_pingreq_at <= now && persistent
+          PahoMqtt.logger.debug("Checking if server is still alive...") if PahoMqtt.logger?
+          @sender.send_pingreq
+        end
       end
-      disconnect_timeout_at = @handler.last_packet_received_at + (keep_alive * 1.1).ceil
+      disconnect_timeout_at = last_packet_received_at + (keep_alive * 1.1).ceil
       if disconnect_timeout_at <= now
         PahoMqtt.logger.debug("No activity is over timeout, disconnecting from #{@host}.") if PahoMqtt.logger?
         @cs = MQTT_CS_DISCONNECT
