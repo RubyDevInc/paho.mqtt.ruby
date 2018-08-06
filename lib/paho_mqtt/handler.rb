@@ -21,7 +21,6 @@ module PahoMqtt
 
     def initialize
       @registered_callback = []
-      @last_packet_received_at = -1
       @publisher           = nil
       @subscriber          = nil
     end
