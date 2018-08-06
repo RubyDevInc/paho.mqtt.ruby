@@ -242,7 +242,7 @@ When a packet is received and inspected, an appropriate handler is called. The h
 ### Callbacks
 The callbacks could be defined in a three different ways, as block, as Proc or as Lambda. The callback has access to the packet which triggered it.  
 ```ruby
-### Register a callback trigger on the reception of a CONNACK packet
+### Register a callback trigger on the reception of a CONNACK packet with return code 0x00
 client.on_connack = proc { puts "Successfully Connected" }
 
 ### Register a callback trigger on the reception of PUBLISH packet
