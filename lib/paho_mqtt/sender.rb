@@ -16,6 +16,7 @@ module PahoMqtt
   class Sender
 
     attr_reader :last_packet_sent_at
+    attr_reader :last_pingreq_sent_at
 
     def initialize(ack_timeout)
       @socket          = nil
@@ -48,7 +49,9 @@ module PahoMqtt
     end
 
     def send_pingreq
-      send_packet(PahoMqtt::Packet::Pingreq.new)
+      if send_packet(PahoMqtt::Packet::Pingreq.new)
+        @last_pingreq_sent_at = Time.now
+      end
     end
 
     def prepare_sending(queue, mutex, max_packet, packet)

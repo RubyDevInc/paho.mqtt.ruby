@@ -17,12 +17,18 @@ module PahoMqtt
 
     attr_reader :registered_callback
     attr_reader :last_packet_received_at
+    attr_reader :last_pingresp_received_at
     attr_accessor :clean_session
 
     def initialize
       @registered_callback = []
       @publisher           = nil
       @subscriber          = nil
+    end
+
+    def clean_start
+      @last_packet_received_at = nil
+      @last_pingresp_received_at = nil
     end
 
     def config_pubsub(publisher, subscriber)
@@ -116,6 +122,7 @@ module PahoMqtt
     end
 
     def handle_pingresp(_packet)
+      @last_pingresp_received_at = Time.now
     end
 
     def handle_suback(packet)
