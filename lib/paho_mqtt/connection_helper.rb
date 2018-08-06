@@ -145,13 +145,13 @@ module PahoMqtt
 
     def check_keep_alive(persistent, keep_alive)
       now = Time.now
-      timeout_req = (@sender.last_packet_sent_at + (keep_alive * 0.7).ceil)
-      if timeout_req <= now && persistent
+      next_pingreq_at = @sender.last_packet_sent_at + (keep_alive * 0.7).ceil
+      if next_pingreq_at <= now && persistent
         PahoMqtt.logger.debug("Checking if server is still alive...") if PahoMqtt.logger?
         @sender.send_pingreq
       end
-      timeout_resp = @handler.last_packet_received_at + (keep_alive * 1.1).ceil
-      if timeout_resp <= now
+      disconnect_timeout_at = @handler.last_packet_received_at + (keep_alive * 1.1).ceil
+      if disconnect_timeout_at <= now
         PahoMqtt.logger.debug("No activity is over timeout, disconnecting from #{@host}.") if PahoMqtt.logger?
         @cs = MQTT_CS_DISCONNECT
       end
