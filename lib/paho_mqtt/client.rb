@@ -186,7 +186,7 @@ module PahoMqtt
     end
 
     def loop_misc
-      if @connection_helper.check_keep_alive(@persistent, @handler.last_ping_resp, @keep_alive) == MQTT_CS_DISCONNECT
+      if @connection_helper.check_keep_alive(@persistent, @keep_alive) == MQTT_CS_DISCONNECT
         reconnect if check_persistence
       end
       @publisher.check_waiting_publisher
