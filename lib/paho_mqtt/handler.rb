@@ -91,7 +91,7 @@ module PahoMqtt
         handle_connack_accepted(packet.session_present)
       else
         PahoMqtt.logger.warn(packet.return_msg) if PahoMqtt.logger?
-        MQTT_CS_DISCONNECT
+        return MQTT_CS_DISCONNECT
       end
       @on_connack.call(packet) unless @on_connack.nil?
       MQTT_CS_CONNECTED
