@@ -150,7 +150,7 @@ module PahoMqtt
         PahoMqtt.logger.debug("Checking if server is still alive...") if PahoMqtt.logger?
         @sender.send_pingreq
       end
-      timeout_resp = @handler.last_ping_resp + (keep_alive * 1.1).ceil
+      timeout_resp = @handler.last_packet_received_at + (keep_alive * 1.1).ceil
       if timeout_resp <= now
         PahoMqtt.logger.debug("No activity is over timeout, disconnecting from #{@host}.") if PahoMqtt.logger?
         @cs = MQTT_CS_DISCONNECT
