@@ -15,7 +15,7 @@
 module PahoMqtt
   class Sender
 
-    attr_accessor :last_ping_req
+    attr_accessor :last_packet_sent_at
 
     def initialize(ack_timeout)
       @socket          = nil
@@ -23,7 +23,7 @@ module PahoMqtt
       @publish_queue   = []
       @publish_mutex   = Mutex.new
       @writing_mutex   = Mutex.new
-      @last_ping_req   = -1
+      @last_packet_sent_at = -1
       @ack_timeout     = ack_timeout
     end
 
@@ -34,7 +34,7 @@ module PahoMqtt
     def send_packet(packet)
       begin
         @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
-        @last_ping_req = Time.now
+        @last_packet_sent_at = Time.now
         MQTT_ERR_SUCCESS
       end
     rescue StandardError
