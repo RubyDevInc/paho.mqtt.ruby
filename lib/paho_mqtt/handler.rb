@@ -88,6 +88,7 @@ module PahoMqtt
     def handle_connack(packet)
       if packet.return_code == 0x00
         PahoMqtt.logger.debug(packet.return_msg) if PahoMqtt.logger?
+        @last_pingresp_received_at = Time.now
         handle_connack_accepted(packet.session_present)
       else
         PahoMqtt.logger.warn(packet.return_msg) if PahoMqtt.logger?
