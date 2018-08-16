@@ -33,12 +33,12 @@ module PahoMqtt
 
     def send_packet(packet)
       begin
-        if @socket.nil? || @socket.closed?
-          return false
-        else
+        unless @socket.nil? || @socket.closed?
           @socket.write(packet.to_s)
           @last_packet_sent_at = Time.now
-          return true
+          MQTT_ERR_SUCCESS
+        else
+          MQTT_ERR_FAIL
         end
       end
     rescue StandardError
@@ -49,9 +49,7 @@ module PahoMqtt
     end
 
     def send_pingreq
-      if send_packet(PahoMqtt::Packet::Pingreq.new)
-        @last_pingreq_sent_at = Time.now
-      end
+      @last_pingreq_sent_at = Time.now if send_packet(PahoMqtt::Packet::Pingreq.new) == MQTT_ERR_SUCCESS
     end
 
     def prepare_sending(queue, mutex, max_packet, packet)

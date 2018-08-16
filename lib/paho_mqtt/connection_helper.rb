@@ -105,7 +105,6 @@ module PahoMqtt
     def clean_start(host, port)
       self.host = host
       self.port = port
-      @handler.clean_start
       unless @socket.nil?
         @socket.close unless @socket.closed?
         @socket = nil

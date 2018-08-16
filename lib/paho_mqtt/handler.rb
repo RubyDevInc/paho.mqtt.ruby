@@ -15,20 +15,15 @@
 module PahoMqtt
   class Handler
 
-    attr_reader :registered_callback
-    attr_reader :last_packet_received_at
-    attr_reader :last_pingresp_received_at
+    attr_reader   :registered_callback
+    attr_reader   :last_packet_received_at
+    attr_reader   :last_pingresp_received_at
     attr_accessor :clean_session
 
     def initialize
       @registered_callback = []
       @publisher           = nil
       @subscriber          = nil
-    end
-
-    def clean_start
-      @last_packet_received_at = nil
-      @last_pingresp_received_at = nil
     end
 
     def config_pubsub(publisher, subscriber)
@@ -53,7 +48,7 @@ module PahoMqtt
           end
         end
       end
-      return result
+      result
     end
 
     def handle_packet(packet)
