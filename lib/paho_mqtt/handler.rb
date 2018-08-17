@@ -16,14 +16,19 @@ module PahoMqtt
   class Handler
 
     attr_reader :registered_callback
-    attr_accessor :last_ping_resp
+    attr_reader :last_packet_received_at
+    attr_reader :last_pingresp_received_at
     attr_accessor :clean_session
 
     def initialize
       @registered_callback = []
-      @last_ping_resp      = -1
       @publisher           = nil
       @subscriber          = nil
+    end
+
+    def clean_start
+      @last_packet_received_at = nil
+      @last_pingresp_received_at = nil
     end
 
     def config_pubsub(publisher, subscriber)
@@ -40,12 +45,11 @@ module PahoMqtt
       unless result.nil?
         packet = PahoMqtt::Packet::Base.read(@socket)
         unless packet.nil?
+          @last_packet_received_at = Time.now
           if packet.is_a?(PahoMqtt::Packet::Connack)
-            @last_ping_resp = Time.now
             return handle_connack(packet)
           else
             handle_packet(packet)
-            @last_ping_resp = Time.now
           end
         end
       end
@@ -87,7 +91,7 @@ module PahoMqtt
         handle_connack_accepted(packet.session_present)
       else
         PahoMqtt.logger.warn(packet.return_msg) if PahoMqtt.logger?
-        MQTT_CS_DISCONNECT
+        return MQTT_CS_DISCONNECT
       end
       @on_connack.call(packet) unless @on_connack.nil?
       MQTT_CS_CONNECTED
@@ -118,7 +122,7 @@ module PahoMqtt
     end
 
     def handle_pingresp(_packet)
-      @last_ping_resp = Time.now
+      @last_pingresp_received_at = Time.now
     end
 
     def handle_suback(packet)
