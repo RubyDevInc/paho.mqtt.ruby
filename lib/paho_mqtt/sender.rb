@@ -15,7 +15,8 @@
 module PahoMqtt
   class Sender
 
-    attr_accessor :last_ping_req
+    attr_reader :last_packet_sent_at
+    attr_reader :last_pingreq_sent_at
 
     def initialize(ack_timeout)
       @socket          = nil
@@ -23,7 +24,6 @@ module PahoMqtt
       @publish_queue   = []
       @publish_mutex   = Mutex.new
       @writing_mutex   = Mutex.new
-      @last_ping_req   = -1
       @ack_timeout     = ack_timeout
     end
 
@@ -33,9 +33,13 @@ module PahoMqtt
 
     def send_packet(packet)
       begin
-        @socket.write(packet.to_s) unless @socket.nil? || @socket.closed?
-        @last_ping_req = Time.now
-        MQTT_ERR_SUCCESS
+        unless @socket.nil? || @socket.closed?
+          @socket.write(packet.to_s)
+          @last_packet_sent_at = Time.now
+          MQTT_ERR_SUCCESS
+        else
+          MQTT_ERR_FAIL
+        end
       end
     rescue StandardError
       raise WritingException
@@ -45,7 +49,7 @@ module PahoMqtt
     end
 
     def send_pingreq
-      send_packet(PahoMqtt::Packet::Pingreq.new)
+      @last_pingreq_sent_at = Time.now if send_packet(PahoMqtt::Packet::Pingreq.new) == MQTT_ERR_SUCCESS
     end
 
     def prepare_sending(queue, mutex, max_packet, packet)
